@@ -1,5 +1,5 @@
 Suspect | Mirror | Image
---- | ---
+--- | --- | ---
 Suspect related to C17-Sphinganine +CH2 | ![](https://metabolomics-usi.ucsd.edu/svg/mirror?usi1=mzspec:MSV000078547:121207_aby_B_DD_MS2.mzXML:scan:102&usi2=mzspec:GNPSLIBRARY:CCMSLIB00000579284&mz_min=50&mz_max=500&max_intensity=150) | ![](https://metabolomics-usi.ucsd.edu/svg/?usi=mzspec:MSV000078547:121207_aby_B_DD_MS2.mzXML:scan:102&mz_min=50&mz_max=500))
 Suspect related to C17-Sphinganine +CH2 | ![](https://metabolomics-usi.ucsd.edu/svg/mirror?usi1=mzspec:MSV000078547:121207_aby_B_DD_MS2.mzXML:scan:109&usi2=mzspec:GNPSLIBRARY:CCMSLIB00000579284&mz_min=50&mz_max=500&max_intensity=150) | ![](https://metabolomics-usi.ucsd.edu/svg/?usi=mzspec:MSV000078547:121207_aby_B_DD_MS2.mzXML:scan:109&mz_min=50&mz_max=500))
 Suspect related to C17-Sphinganine +CH2 | ![](https://metabolomics-usi.ucsd.edu/svg/mirror?usi1=mzspec:MSV000078547:121207_aby_D_DD_MS2.mzXML:scan:55&usi2=mzspec:GNPSLIBRARY:CCMSLIB00000579284&mz_min=50&mz_max=500&max_intensity=150) | ![](https://metabolomics-usi.ucsd.edu/svg/?usi=mzspec:MSV000078547:121207_aby_D_DD_MS2.mzXML:scan:55&mz_min=50&mz_max=500))
