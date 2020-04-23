@@ -1,0 +1,5 @@
+Suspect | Mirror | Image
+--- | --- | ---
+Suspect related to C17-Sphinganine +CH2 | ![](https://metabolomics-usi.ucsd.edu/svg/mirror?usi1=mzspec:MSV000078547:121207_proximicin_B_DD_MS2.mzXML:scan:34&usi2=mzspec:GNPSLIBRARY:CCMSLIB00000579284&mz_min=50&mz_max=500&max_intensity=150) | ![](https://metabolomics-usi.ucsd.edu/svg/?usi=mzspec:MSV000078547:121207_proximicin_B_DD_MS2.mzXML:scan:34&mz_min=50&mz_max=500))
+Suspect related to Beauvericin +O | ![](https://metabolomics-usi.ucsd.edu/svg/mirror?usi1=mzspec:MSV000078547:121207_aby_J_DD_MS2.mzXML:scan:139&usi2=mzspec:GNPSLIBRARY:CCMSLIB00003416348&mz_min=50&mz_max=500&max_intensity=150) | ![](https://metabolomics-usi.ucsd.edu/svg/?usi=mzspec:MSV000078547:121207_aby_J_DD_MS2.mzXML:scan:139&mz_min=50&mz_max=500))
+Suspect related to Tyr-Pro-Phe -O | ![](https://metabolomics-usi.ucsd.edu/svg/mirror?usi1=mzspec:MSV000078547:fi1026d_FT-it.mzXML:scan:132&usi2=mzspec:GNPSLIBRARY:CCMSLIB00003729791&mz_min=50&mz_max=500&max_intensity=150) | ![](https://metabolomics-usi.ucsd.edu/svg/?usi=mzspec:MSV000078547:fi1026d_FT-it.mzXML:scan:132&mz_min=50&mz_max=500))
