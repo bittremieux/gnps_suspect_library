@@ -1,0 +1,49 @@
+CompoundName	Mod	PutativeID	DeltaMZ	LibraryID	ClusterScanNr	SuspectScanNr	SuspectPath
+Beauvericin	addition	O	-15.998	CCMSLIB00003416348	1520	139	f.MSV000078547/spectrum/DLab/121207_aby_J_DD_MS2.mzXML
+Tyr-Pro-Phe	loss	O	-15.99	CCMSLIB00003729791	410	132	f.MSV000078547/spectrum/DLab/fi1026d_FT-it.mzXML
+C17-Sphinganine	addition	CH2	-14.02	CCMSLIB00000579284	147	34	f.MSV000078547/spectrum/DLab/121207_proximicin_B_DD_MS2.mzXML
+Pseudopyronine B	loss	C2H4	-28.0308	CCMSLIB00000223956	238	162	f.MSV000078552/spectrum/Pseudomonas/Pseudomonas_012712_Pseudomonas_3w11m1.mzXML
+Myristoleic acid	addition	CH2	-14.017999999999999	CCMSLIB00003234062	137879	2753	f.MSV000078556/spectrum/Human_Swabs/Man/1m__BC1_01_930.mzXML
+16-Hydroxyhexadecanoic acid	addition	CH2	-14.017000000000001	CCMSLIB00003527360	246914	3020	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BA7_01_2236.mzXML
+Octadecenoic acid	loss	CH2	-14.009	CCMSLIB00000075360	413118	3020	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BA7_01_2236.mzXML
+cis-9,10-methylene-hexadecanoic acid	loss	CH2	-14.017000000000001	CCMSLIB00000075362	342805	2887	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BA8_01_2237.mzXML
+Ethyl pentadecanoate	loss	CH2	-14.012	CCMSLIB00003568840	116779	2601	f.MSV000078556/spectrum/Human_Swabs/Man/1m__BB11_01_928.mzXML
+Hexadecenoic acid	addition	CH2	-14.011	CCMSLIB00000075361	248332	3022	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BA6_01_2235.mzXML
+cis-9,10-methylene-hexadecanoic acid	loss	C2H4	-28.02	CCMSLIB00000075362	341947	2761	f.MSV000078556/spectrum/Human_Swabs/Man/1m__BH10_01_999.mzXML
+Octadecenoic acid	loss	C2H4	-28.025	CCMSLIB00000075360	413118	2877	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BA10_01_2239.mzXML
+Hexadecenoic acid	loss	C2H4	-28.025	CCMSLIB00000075361	247657	2584	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BF1_01_2290.mzXML
+Massbank:FIO00256 delta-Tridecalactone	addition	CH2	-14.02	CCMSLIB00000213944	89142	2611	f.MSV000078556/spectrum/Human_Swabs/Woman/13m__BB8_01_2042.mzXML
+Monopalmitolein (9c)	loss	C2H4	-28.031999999999996	CCMSLIB00003302671	673362	2400	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BA9_01_2238.mzXML
+cis-9,10-methylene-hexadecanoic acid	addition	CH2	-14.034	CCMSLIB00000075362	342004	3138	f.MSV000078556/spectrum/Human_Swabs/Man/4m__BA10_01_1216.mzXML
+Monoelaidin	loss	C2H4	-28.024	CCMSLIB00003309772	836139	2709	f.MSV000078556/spectrum/Human_Swabs/Man/4m__BC9_01_1239.mzXML
+Ethyl pentadecanoate	addition	CH2	-14.007	CCMSLIB00003568854	208240	304	f.MSV000078556/spectrum/Human_Swabs/Woman/13m__BA5_01_2027.mzXML
+16-Hydroxyhexadecanoic acid	addition	C2H4	-28.026	CCMSLIB00003527360	246914	3123	f.MSV000078556/spectrum/Human_Swabs/Man/5m__BE5_01_1359.mzXML
+16-Hydroxyhexadecanoic acid	loss	CH2	-14.015	CCMSLIB00003527360	246914	2740	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BA5_01_2234.mzXML
+Myristoleic acid	addition	C2H4	-28.035999999999998	CCMSLIB00003234062	137879	2887	f.MSV000078556/spectrum/Human_Swabs/Woman/11m__BD2_01_1856.mzXML
+Palmitoleic acid ethyl ester	loss	C2H4	-28.031999999999996	CCMSLIB00003354404	414364	2901	f.MSV000078556/spectrum/Human_Swabs/Woman/13m__BB3_01_2037.mzXML
+Hexadecenoic acid	loss	CH2	-14.023	CCMSLIB00000075361	247221	2729	f.MSV000078556/spectrum/Human_Swabs/Man/1m__BC2_01_931.mzXML
+Myristoleic acid	loss	CH2	-14.017999999999999	CCMSLIB00003478778	133606	2438	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BA6_01_2235.mzXML
+trans-13-Octadecenoic acid	loss	C2H4	-28.058000000000003	CCMSLIB00003722195	413741	2882	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BF3_01_2292.mzXML
+Myristoleic acid	loss	C2H4	-28.035999999999998	CCMSLIB00003478778	138096	2270	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BA4_01_2233.mzXML
+Massbank:FIO00053 delta-Dodecalactone	addition	C2H4	-28.035999999999998	CCMSLIB00000213680	43603	2599	f.MSV000078556/spectrum/Human_Swabs/Woman/13m__BA1_01_2023.mzXML
+Massbank:FIO00256 delta-Tridecalactone	addition	C2H4	-28.029	CCMSLIB00000213944	89142	2747	f.MSV000078556/spectrum/Human_Swabs/Man/4m__BB8_01_1226.mzXML
+Myristoleic acid	loss	O	-16.033	CCMSLIB00003478778	138080	1115	f.MSV000078556/spectrum/Human_Swabs/Man/2m__BF4_01_1069.mzXML
+Monopalmitolein (9c)	addition	C2H4	-28.03	CCMSLIB00003302671	673977	2966	f.MSV000078556/spectrum/Human_Swabs/Woman/13m__BA5_01_2027.mzXML
+Hexadecenoic acid	addition	C2H4	-28.023000000000003	CCMSLIB00000075361	248332	3131	f.MSV000078556/spectrum/Human_Swabs/Man/4m__BB7_01_1225.mzXML
+3-Hydroxydodecanoic acid	addition	C2H4	-28.033	CCMSLIB00003186584	46232	2590	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BA7_01_2236.mzXML
+16-Hydroxyhexadecanoic acid	loss	C2H4	-28.026	CCMSLIB00003527360	247017	2604	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BC11_01_2264.mzXML
+NCGC00169778-02!5-hydroxy-2-(4-methoxyphenyl)-7-[(2S,3R,4S,5S,6R)-3,4,5-trihydroxy-6-[[(2R,3R,4R,5R,6S)-3,4,5-trihydroxy-6-methyloxan-2-yl]oxymethyl]oxan-2-yl]oxy-2,3-dihydrochromen-4-one	addition	O	-15.952	CCMSLIB00000848477	1543094	1120	f.MSV000078556/spectrum/Human_Swabs/Woman/11m__BC10_01_1852.mzXML
+trans-13-Octadecenoic acid	loss	CH2	-14.014000000000001	CCMSLIB00003722195	413046	2978	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BA7_01_2236.mzXML
+1-Stearoyl-rac-glycerol	loss	C2H4	-28.038	CCMSLIB00003185828	842148	2898	f.MSV000078556/spectrum/Human_Swabs/Man/1m__BA8_01_913.mzXML
+Palmitoleic acid ethyl ester	loss	CH2	-14.017999999999999	CCMSLIB00003354442	174116	2745	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BA1_01_2230.mzXML
+Spectral Match to 9-Oxo-10E,12Z-octadecadienoic acid from NIST14	addition	C2H4	-28.039	CCMSLIB00003136345	484532	2930	f.MSV000078556/spectrum/Human_Swabs/Man/1m__BB11_01_928.mzXML
+Likely similar to laureth sulfate A +28 Da compared sodium laureth sulfate	loss	C2H4	-28.031	CCMSLIB00000478609	959509	2339	f.MSV000078556/spectrum/Cosmetic Ingredient/BP1_SLES_BB1_01_6430.mzXML
+2,4,7,9-Tetramethyl-5-decyne-4,7-diol	addition	C2H4	-28.035999999999998	CCMSLIB00003304570	76147	2886	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BC9_01_2262.mzXML
+NCGC00385123-01_C22H30O6_7b,9-Dihydroxy-3-(hydroxymethyl)-1,1,6,8-tetramethyl-5-oxo-1,1a,1b,4,4a,5,7a,7b,8,9-decahydro-9aH-cyclopropa[3,4]benzo[1,2-e]azulen-9a-yl acetate	addition	C2H4	-28.04	CCMSLIB00000853386	1130101	2017	f.MSV000078556/spectrum/Human_Swabs/Woman/m15__BG10_01_2311.mzXML
+Myristoleic acid	addition	O	-15.966	CCMSLIB00003478803	76146	1330	f.MSV000078556/spectrum/Human_Swabs/Man/3m__BF3_01_1168.mzXML
+Isoxadifen-ethyl	addition	CH2	-14.014000000000001	CCMSLIB00003562356	231797	2040	f.MSV000078556/spectrum/Cosmetic Ingredient/BP5_Octocrylene_01_6122.mzXML
+Arachidic acid	addition	CH2	-14.004000000000001	CCMSLIB00003720466	91468	2795	f.MSV000078556/spectrum/Human_Swabs/Man/4m__BA2_01_1208.mzXML
+NCGC00169359-03!5-hydroxy-2-(4-hydroxyphenyl)-7-[(2S,3R,4S,5S,6R)-3,4,5-trihydroxy-6-[[(2R,3R,4R,5R,6S)-3,4,5-trihydroxy-6-methyloxan-2-yl]oxymethyl]oxan-2-yl]oxy-2,3-dihydrochromen-4-one	addition	CH2	-14.017000000000001	CCMSLIB00000848136	1515220	1304	f.MSV000078556/spectrum/Human_Swabs/Woman/11m__BD4_01_1858.mzXML
+NCGC00169778-02!5-hydroxy-2-(4-methoxyphenyl)-7-[(2S,3R,4S,5S,6R)-3,4,5-trihydroxy-6-[[(2R,3R,4R,5R,6S)-3,4,5-trihydroxy-6-methyloxan-2-yl]oxymethyl]oxan-2-yl]oxy-2,3-dihydrochromen-4-one	loss	CH2	-14.017000000000001	CCMSLIB00000848477	1543094	1067	f.MSV000078556/spectrum/Human_Swabs/Woman/11m__BE6_01_1872.mzXML
+Spectral Match to 9-Oxo-10E,12Z-octadecadienoic acid from NIST14	addition	CH2	-13.982000000000001	CCMSLIB00003136345	484692	2482	f.MSV000078556/spectrum/Human_Swabs/Man/3m__BB10_01_1127.mzXML
+11,14,17-Eicosatrienoic acid, (Z,Z,Z)-	loss	C2H4	-28.031	CCMSLIB00003354464	561130	2330	f.MSV000078556/spectrum/Human_Swabs/Man/1m__BB11_01_928.mzXML
