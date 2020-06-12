@@ -1,0 +1,14 @@
+site_name: GNPS Documentation
+site_url: https://ccms-ucsd.github.io/GNPSDocumentation/
+edit_uri: https://github.com/CCMS-UCSD/GNPSDocumentation/blob/master/docs/
+repo_name: CCMS-UCSD/GNPSDocumentation
+repo_url: https://github.com/CCMS-UCSD/GNPSDocumentation
+
+nav:
+    - TEST: test.md
+
+theme:
+    name: material
+
+plugins:
+    - search
