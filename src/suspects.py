@@ -1,7 +1,10 @@
 import ftplib
 import logging
 import math
+import time
+from typing import Optional, Tuple
 
+import joblib
 import numpy as np
 import pandas as pd
 import scipy.signal as ssignal
@@ -114,7 +117,7 @@ def generate_suspects(ids: pd.DataFrame, pairs: pd.DataFrame,
                  right_on=['Dataset', '#Scan#'])
         .drop(columns=['CLUSTERID2'])
         .rename(columns={'CLUSTERID1': 'SuspectIndex'})],
-        ignore_index=True, sort=False).dropna(axis=1)
+        ignore_index=True, sort=False)
 
     # TODO: Properly handle this warning.
     if not suspects['SuspectIndex'].is_unique:
@@ -238,6 +241,58 @@ def group_mass_shifts(
               'SuspectPrecursorMZ', 'SuspectScanNr', 'SuspectPath']])
 
 
+def download_cluster(msv_id: str, ftp_prefix: str, max_tries: int = 5) \
+        -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame],
+                 Optional[pd.DataFrame]]:
+    """
+    Download cluster information for the living data analysis with the given
+    MassIVE identifier.
+
+    Parameters
+    ----------
+    msv_id : str
+        The MassIVE identifier of the dataset in the living data analysis.
+    ftp_prefix : str
+        The FTP prefix of the living data results.
+    max_tries : int
+        The maximum number of times to try downloading files.
+
+    Returns
+    -------
+    Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
+        A tuple of the identifications, pairs, and clustering DataFrames.
+    """
+    while max_tries > 0:
+        try:
+            ids = pd.read_csv(
+                f'{ftp_prefix}/IDENTIFICATIONS/'
+                f'{msv_id}_identifications.tsv',
+                sep='\t', usecols=[
+                    'Compound_Name', 'Adduct', 'Precursor_MZ', 'INCHI',
+                    'SpectrumID', '#Scan#', 'MZErrorPPM', 'SharedPeaks'])
+            ids['Dataset'] = msv_id
+            pairs = pd.read_csv(
+                f'{ftp_prefix}/PAIRS/{msv_id}_pairs.tsv', sep='\t',
+                usecols=['CLUSTERID1', 'CLUSTERID2', 'Cosine'])
+            pairs['Dataset'] = msv_id
+            clusters = pd.read_csv(
+                f'{ftp_prefix}/CLUSTERINFO/{msv_id}_clustering.tsv',
+                sep='\t', usecols=[
+                    'cluster index', 'sum(precursor intensity)',
+                    'parent mass', 'Original_Path', 'ScanNumber'])
+            clusters['Dataset'] = msv_id
+
+            return ids, pairs, clusters
+        except ValueError:
+            logger.warning('Failed to retrieve dataset %s', msv_id)
+            break
+        except IOError:
+            max_tries -= 1
+            time.sleep(1)
+
+    return None, None, None
+
+
 if __name__ == '__main__':
     logging.basicConfig(
         format='{asctime} [{levelname}/{processName}] {message}',
@@ -257,52 +312,32 @@ if __name__ == '__main__':
                                           .astype(np.uint8))
 
     # Get all GNPS living data cluster results.
-    base_url = 'MSV000084314/updates/2020-10-08_mwang87_d7c866dd/other'
-    ftp_prefix = f'ftp://massive.ucsd.edu/{base_url}'
+    ftp_prefix = f'ftp://massive.ucsd.edu/{config.base_url}'
     # Get the MassIVE IDs for all datasets included in the living data.
     ftp = ftplib.FTP('massive.ucsd.edu')
     ftp.login()
-    ftp.cwd(f'{base_url}/CLUSTERINFO')
+    ftp.cwd(f'{config.base_url}/CLUSTERINFO')
     msv_ids = [filename[:filename.find('_')] for filename in ftp.nlst()]
     # Generate the suspects.
-    ids, pairs, clusters = [], [], []
     logger.info('Retrieve cluster information')
-    for msv_id in tqdm.tqdm(msv_ids, desc='Datasets processed',
-                            unit='dataset'):
-        max_tries = 5
-        while max_tries > 0:
-            try:
-                ids.append(pd.read_csv(
-                    f'{ftp_prefix}/IDENTIFICATIONS/'
-                    f'{msv_id}_identifications.tsv',
-                    sep='\t', usecols=[
-                        'Compound_Name', 'Adduct', 'Precursor_MZ',
-                        'SpectrumID', '#Scan#', 'MZErrorPPM', 'SharedPeaks']))
-                ids[-1]['Dataset'] = msv_id
-                pairs.append(pd.read_csv(
-                    f'{ftp_prefix}/PAIRS/{msv_id}_pairs.tsv', sep='\t',
-                    usecols=['CLUSTERID1', 'CLUSTERID2', 'Cosine']))
-                pairs[-1]['Dataset'] = msv_id
-                clusters.append(pd.read_csv(
-                    f'{ftp_prefix}/CLUSTERINFO/{msv_id}_clustering.tsv',
-                    sep='\t', usecols=[
-                        'cluster index', 'sum(precursor intensity)',
-                        'parent mass', 'Original_Path', 'ScanNumber']))
-                clusters[-1]['Dataset'] = msv_id
-            except ValueError:
-                logger.warning('Failed retrieving dataset %s', msv_id)
-                max_tries = 0
-            except IOError:
-                max_tries -= 1
-            else:
-                max_tries = 0
+    ids_pairs_clusters = joblib.Parallel(n_jobs=5)(
+        joblib.delayed(download_cluster)(msv_id, ftp_prefix)
+        for msv_id in tqdm.tqdm(msv_ids, desc='Datasets processed',
+                                unit='dataset'))
+    ids, pairs, clusters = [], [], []
+    for i, p, c in ids_pairs_clusters:
+        if i is not None and p is not None and c is not None:
+            ids.append(i)
+            pairs.append(p)
+            clusters.append(c)
+    ids = pd.concat(ids, ignore_index=True)
+    pairs = pd.concat(pairs, ignore_index=True)
+    clusters = pd.concat(clusters, ignore_index=True)
     # Compile suspects from the clustering data.
     logger.info('Compile suspect pairs')
-    ids = filter_ids(pd.concat(ids, ignore_index=True), config.max_ppm,
-                     config.min_shared_peaks)
-    pairs = filter_pairs(pd.concat(pairs, ignore_index=True),
-                         config.min_cosine)
-    clusters = filter_clusters(pd.concat(clusters, ignore_index=True))
+    ids = filter_ids(ids, config.max_ppm, config.min_shared_peaks)
+    pairs = filter_pairs(pairs, config.min_cosine)
+    clusters = filter_clusters(clusters)
     suspects_unfiltered = generate_suspects(ids, pairs, clusters)
     suspects_unfiltered.to_csv('../../data/suspects_unfiltered.csv',
                                index=False)

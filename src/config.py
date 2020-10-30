@@ -19,6 +19,9 @@
 # Suspect filtering:
 #
 # - Suspects whose delta m/z occurs less than 10 times are discarded.
+
+base_url = 'MSV000084314/updates/2020-10-08_mwang87_d7c866dd/other'
+
 max_ppm = 20
 min_shared_peaks = 6
 min_cosine = 0.8
