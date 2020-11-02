@@ -57,12 +57,16 @@ def download_cluster(msv_id: str, ftp_prefix: str, max_tries: int = 5) \
 
             return identifications, pairs, clustering
         except ValueError:
-            logger.warning('Failed to retrieve dataset %s', msv_id)
+            logger.warning('Error while attempting to retrieve dataset %s',
+                           msv_id)
             break
         except IOError:
             tries_left -= 1
             # Exponential back-off.
             time.sleep(2 ** (max_tries - tries_left) / 10)
+    else:
+        logger.warning('Failed to retrieve dataset %s after %d retries',
+                       msv_id, max_tries)
 
     return None, None, None
 
