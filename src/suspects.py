@@ -143,7 +143,7 @@ def filter_clusters(cluster_info: pd.DataFrame) -> pd.DataFrame:
 
 
 def generate_suspects(ids: pd.DataFrame, pairs: pd.DataFrame,
-                      summary: pd.DataFrame) -> pd.DataFrame:
+                      clusters: pd.DataFrame) -> pd.DataFrame:
     """
     Generate suspects from identifications and aligned spectra pairs.
     Provenance about the spectra pairs is added from the summary.
@@ -154,8 +154,8 @@ def generate_suspects(ids: pd.DataFrame, pairs: pd.DataFrame,
         The filtered identifications.
     pairs : pd.DataFrame
         The filtered pairs.
-    summary : pd.DataFrame
-        The filtered summary information for the clusters.
+    clusters : pd.DataFrame
+        The filtered clustering information.
 
     Returns
     -------
@@ -177,10 +177,6 @@ def generate_suspects(ids: pd.DataFrame, pairs: pd.DataFrame,
         .rename(columns={'CLUSTERID1': 'SuspectIndex'})],
         ignore_index=True, sort=False)
 
-    # TODO: Properly handle this warning.
-    if not suspects['SuspectIndex'].is_unique:
-        logger.warning('Multiple analog matches per suspect scan found')
-
     # Add provenance information for the library and suspect scans.
     suspects = (suspects[['Dataset', 'INCHI', 'Compound_Name', 'Adduct',
                           'Cosine', 'Precursor_MZ', 'SpectrumID', '#Scan#',
@@ -189,25 +185,32 @@ def generate_suspects(ids: pd.DataFrame, pairs: pd.DataFrame,
                                  'Precursor_MZ': 'LibraryPrecursorMZ',
                                  'SpectrumID': 'LibraryID',
                                  '#Scan#': 'ClusterScanNr'}))
-    suspects = (pd.merge(suspects, summary,
+    suspects = (pd.merge(suspects, clusters,
                          left_on=['Dataset', 'SuspectIndex'],
                          right_on=['Dataset', 'cluster index'])
                 .drop(columns=['SuspectIndex', 'cluster index'])
                 .rename(columns={'parent mass': 'SuspectPrecursorMZ',
                                  'Original_Path': 'SuspectPath',
                                  'ScanNumber': 'SuspectScanNr'}))
+    suspects['DeltaMZ'] = (suspects['SuspectPrecursorMZ'] -
+                           suspects['LibraryPrecursorMZ'])
+    suspects['GroupDeltaMZ'] = np.nan
     return suspects
 
 
 def group_mass_shifts(
         suspects: pd.DataFrame, mass_shift_annotations: pd.DataFrame,
-        min_delta_mz: float, interval_width: float, bin_width: float,
-        peak_height: float, max_dist: float) -> pd.DataFrame:
+        interval_width: float, bin_width: float, peak_height: float,
+        max_dist: float) -> pd.DataFrame:
     """
     Group close mass shifts.
 
     Mass shifts are binned and the group delta m/z is detected by finding
-    peaks in the histogram.
+    peaks in the histogram. Grouped mass shifts are assigned potential
+    explanations from the given mass shift annotations. If no annotation can be
+    found for a certain group, the rationale and atomic difference will be
+    marked as "unspecified". Ungrouped suspects will have a missing rationale
+    and atomic difference.
 
     Arguments
     ---------
@@ -215,8 +218,6 @@ def group_mass_shifts(
         The suspects from which mass shifts are grouped.
     mass_shift_annotations : pd.DataFrame
         Mass shift explanations.
-    min_delta_mz : float
-        The minimum (absolute) delta m/z for suspects to be retained.
     interval_width : float
         The size of the interval in which mass shifts are binned, centered
         around unit masses.
@@ -231,12 +232,9 @@ def group_mass_shifts(
     Returns
     -------
     pd.DataFrame
-        The suspects with grouped mass shifts.
+        The suspects with grouped mass shifts and corresponding rationale (if
+        applicable).
     """
-    suspects['DeltaMZ'] = (suspects['SuspectPrecursorMZ'] -
-                           suspects['LibraryPrecursorMZ'])
-    # Remove suspects with an insufficient mass shift.
-    suspects = suspects[suspects['DeltaMZ'].abs() > min_delta_mz].copy()
     # Assign putative identifications to the mass shifts.
     for mz in np.arange(math.floor(suspects['DeltaMZ'].min()),
                         math.ceil(suspects['DeltaMZ'].max() + interval_width),
@@ -277,21 +275,18 @@ def group_mass_shifts(
             suspects.loc[mask_delta_mz, 'GroupDeltaMZ'] = delta_mz
             putative_id = mass_shift_annotations[
                 (mass_shift_annotations['mz delta'].abs()
-                 - abs(delta_mz)).abs() < max_dist / 2]
-            putative_id = putative_id.sort_values(
+                 - abs(delta_mz)).abs() < max_dist / 2].sort_values(
                 ['priority', 'atomic difference', 'rationale'])
             if len(putative_id) == 0:
-                suspects.loc[mask_delta_mz, 'AtomicDifference'] = 'unknown'
+                suspects.loc[mask_delta_mz, 'AtomicDifference'] = 'unspecified'
                 suspects.loc[mask_delta_mz, 'Rationale'] = 'unspecified'
             else:
                 suspects.loc[mask_delta_mz, 'AtomicDifference'] = '|'.join(
                     putative_id['atomic difference'].fillna('unspecified'))
                 suspects.loc[mask_delta_mz, 'Rationale'] = '|'.join(
                     putative_id['rationale'].fillna('unspecified'))
-    # Set delta m/z's for ungrouped suspects.
-    suspects['GroupDeltaMZ'].fillna(suspects['DeltaMZ'], inplace=True)
 
-    return (suspects.sort_values(['CompoundName', 'GroupDeltaMZ'])
+    return (suspects.sort_values(['CompoundName', 'Adduct', 'GroupDeltaMZ'])
             .reset_index(drop=True)
             [['Dataset', 'INCHI', 'CompoundName', 'Adduct', 'DeltaMZ',
               'GroupDeltaMZ', 'AtomicDifference', 'Rationale', 'Cosine',
