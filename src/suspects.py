@@ -13,6 +13,60 @@ import tqdm
 import config
 
 
+def download_cluster(msv_id: str, ftp_prefix: str, max_tries: int = 5) \
+        -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame],
+                 Optional[pd.DataFrame]]:
+    """
+    Download cluster information for the living data analysis with the given
+    MassIVE identifier.
+
+    Parameters
+    ----------
+    msv_id : str
+        The MassIVE identifier of the dataset in the living data analysis.
+    ftp_prefix : str
+        The FTP prefix of the living data results.
+    max_tries : int
+        The maximum number of times to try downloading files.
+
+    Returns
+    -------
+    Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
+        A tuple of the identifications, pairs, and clustering DataFrames.
+    """
+    tries_left = max_tries
+    while tries_left > 0:
+        try:
+            identifications = pd.read_csv(
+                f'{ftp_prefix}/IDENTIFICATIONS/'
+                f'{msv_id}_identifications.tsv',
+                sep='\t', usecols=[
+                    'Compound_Name', 'Adduct', 'Precursor_MZ', 'INCHI',
+                    'SpectrumID', '#Scan#', 'MZErrorPPM', 'SharedPeaks'])
+            identifications['Dataset'] = msv_id
+            pairs = pd.read_csv(
+                f'{ftp_prefix}/PAIRS/{msv_id}_pairs.tsv', sep='\t',
+                usecols=['CLUSTERID1', 'CLUSTERID2', 'Cosine'])
+            pairs['Dataset'] = msv_id
+            clustering = pd.read_csv(
+                f'{ftp_prefix}/CLUSTERINFO/{msv_id}_clustering.tsv',
+                sep='\t', usecols=[
+                    'cluster index', 'sum(precursor intensity)',
+                    'parent mass', 'Original_Path', 'ScanNumber'])
+            clustering['Dataset'] = msv_id
+
+            return identifications, pairs, clustering
+        except ValueError:
+            logger.warning('Failed to retrieve dataset %s', msv_id)
+            break
+        except IOError:
+            tries_left -= 1
+            # Exponential back-off.
+            time.sleep(2 ** (max_tries - tries_left) / 10)
+
+    return None, None, None
+
+
 def filter_ids(ids: pd.DataFrame, max_ppm: float, min_shared_peaks: int) \
         -> pd.DataFrame:
     """
@@ -239,58 +293,6 @@ def group_mass_shifts(
               'GroupDeltaMZ', 'AtomicDifference', 'Rationale', 'Cosine',
               'LibraryPrecursorMZ', 'LibraryID', 'ClusterScanNr',
               'SuspectPrecursorMZ', 'SuspectScanNr', 'SuspectPath']])
-
-
-def download_cluster(msv_id: str, ftp_prefix: str, max_tries: int = 5) \
-        -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame],
-                 Optional[pd.DataFrame]]:
-    """
-    Download cluster information for the living data analysis with the given
-    MassIVE identifier.
-
-    Parameters
-    ----------
-    msv_id : str
-        The MassIVE identifier of the dataset in the living data analysis.
-    ftp_prefix : str
-        The FTP prefix of the living data results.
-    max_tries : int
-        The maximum number of times to try downloading files.
-
-    Returns
-    -------
-    Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
-        A tuple of the identifications, pairs, and clustering DataFrames.
-    """
-    while max_tries > 0:
-        try:
-            ids = pd.read_csv(
-                f'{ftp_prefix}/IDENTIFICATIONS/'
-                f'{msv_id}_identifications.tsv',
-                sep='\t', usecols=[
-                    'Compound_Name', 'Adduct', 'Precursor_MZ', 'INCHI',
-                    'SpectrumID', '#Scan#', 'MZErrorPPM', 'SharedPeaks'])
-            ids['Dataset'] = msv_id
-            pairs = pd.read_csv(
-                f'{ftp_prefix}/PAIRS/{msv_id}_pairs.tsv', sep='\t',
-                usecols=['CLUSTERID1', 'CLUSTERID2', 'Cosine'])
-            pairs['Dataset'] = msv_id
-            clusters = pd.read_csv(
-                f'{ftp_prefix}/CLUSTERINFO/{msv_id}_clustering.tsv',
-                sep='\t', usecols=[
-                    'cluster index', 'sum(precursor intensity)',
-                    'parent mass', 'Original_Path', 'ScanNumber'])
-            clusters['Dataset'] = msv_id
-
-            return ids, pairs, clusters
-        except ValueError:
-            logger.warning('Failed to retrieve dataset %s', msv_id)
-            break
-        except IOError:
-            max_tries -= 1
-            time.sleep(1)
-
-    return None, None, None
 
 
 if __name__ == '__main__':
