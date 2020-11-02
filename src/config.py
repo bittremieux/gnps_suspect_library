@@ -20,7 +20,11 @@
 #
 # - Suspects whose delta m/z occurs less than 10 times are discarded.
 
-base_url = 'MSV000084314/updates/2020-10-08_mwang87_d7c866dd/other'
+mass_shift_annotation_url = ('https://docs.google.com/spreadsheets/d/'
+                             '1-xh2XpSqdsa4yU-ATpDRxmpZEH6ht982jCCATFOpkyM/'
+                             'export?format=csv&gid=566878567')
+
+living_data_base_url = 'MSV000084314/updates/2020-10-08_mwang87_d7c866dd/other'
 
 max_ppm = 20
 min_shared_peaks = 6

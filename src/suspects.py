@@ -295,7 +295,15 @@ def _group_mass_shifts(
               'SuspectPrecursorMZ', 'SuspectScanNr', 'SuspectPath']])
 
 
-def generate_suspects():
+def generate_suspects() -> None:
+    """
+    Generate suspects from the GNPS living data results.
+
+    Suspect (unfiltered and filtered, unique) metadata is exported to csv files
+    in the data directory.
+
+    Settings for the suspect generation are taken from the config file.
+    """
     # Expert-based mass shift annotations.
     mass_shift_annotations = pd.read_csv(config.mass_shift_annotation_url)
     mass_shift_annotations['mz delta'] = (mass_shift_annotations['mz delta']
@@ -344,7 +352,8 @@ def generate_suspects():
         config.bin_width, config.peak_height, config.max_dist)
     suspects_grouped.to_csv('../../data/suspects_grouped.csv', index=False)
     # Ignore ungrouped suspects.
-    suspects_grouped = suspects_grouped.dropna(subset='GroupDeltaMZ')
+    suspects_grouped = suspects_grouped.dropna(
+        'index', subset=['GroupDeltaMZ'])
     # Only use the top suspect (by cosine score) per combination of library
     # spectrum and grouped mass shift.
     suspects_unique = (
@@ -352,19 +361,17 @@ def generate_suspects():
         .drop_duplicates(['CompoundName', 'Adduct', 'GroupDeltaMZ']))
     suspects_unique.to_csv('../../data/suspects_unique.csv', index=False)
 
-    delta_mzs = (suspects['GroupDeltaMZ'].value_counts().reset_index()
-                 .rename(columns={'GroupDeltaMZ': 'Count',
-                                  'index': 'GroupDeltaMZ'})
-                 .sort_values('Count', ascending=False))
+    logger.info('Total: %d suspects collected', len(suspects_unfiltered))
+    logger.info('After duplicate removal and filtering: %d unique suspects',
+                len(suspects_unique))
 
-    suspects_unique_filtered = (suspects_unique[
-        suspects_unique['GroupDeltaMZ'].isin(
-            delta_mzs.loc[delta_mzs['Count'] >= config.min_group_size,
-                          'GroupDeltaMZ'])])
-    suspects_unique_filtered.to_csv('../../data/suspects_unique.csv',
-                                    index=False)
 
-    logger.info('Total: %d suspects collected', len(suspects))
-    logger.info('After duplicate removal and filtering (delta m/z occurs at '
-                'least %d times): %d unique suspects', config.min_group_size,
-                len(suspects_unique_filtered))
+if __name__ == '__main__':
+    logging.basicConfig(
+        format='{asctime} [{levelname}/{processName}] {message}',
+        style='{', level=logging.INFO)
+    logging.captureWarnings(True)
+    logger = logging.getLogger('suspect_list')
+    logger.setLevel(logging.INFO)
+
+    generate_suspects()
