@@ -343,18 +343,23 @@ if __name__ == '__main__':
     suspects_unfiltered.to_csv('../../data/suspects_unfiltered.csv',
                                index=False)
 
-    # Group and assign suspects by observed delta m/z.
-    suspects_unfiltered = pd.read_csv('../../data/suspects_unfiltered.csv')
-    logger.info('Assign putative explanations to mass shifts')
-    suspects = group_mass_shifts(suspects_unfiltered, mass_shift_annotations,
-                                 config.min_delta_mz, config.interval_width,
-                                 config.bin_width, config.peak_height,
-                                 config.max_dist)
+    # Ignore suspects without a mass shift.
+    suspects_unfiltered = suspects_unfiltered[
+        suspects_unfiltered['DeltaMZ'].abs() > config.min_delta_mz].copy()
+    # Group and assign suspects by observed mass shift.
+    logger.info('Group suspects by mass shift and assign potential rationales')
+    suspects_grouped = group_mass_shifts(
+        suspects_unfiltered, mass_shift_annotations, config.interval_width,
+        config.bin_width, config.peak_height, config.max_dist)
+    suspects_grouped.to_csv('../../data/suspects_grouped.csv', index=False)
+    # Ignore ungrouped suspects.
+    suspects_grouped = suspects_grouped.dropna(subset='GroupDeltaMZ')
     # Only use the top suspect (by cosine score) per combination of library
-    # spectrum and putative identification.
-    suspects_unique = (suspects.sort_values(['Cosine'], ascending=False)
-                       .drop_duplicates(['CompoundName', 'Adduct',
-                                         'GroupDeltaMZ']))
+    # spectrum and grouped mass shift.
+    suspects_unique = (
+        suspects_grouped.sort_values(['Cosine'], ascending=False)
+        .drop_duplicates(['CompoundName', 'Adduct', 'GroupDeltaMZ']))
+    suspects_unique.to_csv('../../data/suspects_unique.csv', index=False)
 
     delta_mzs = (suspects['GroupDeltaMZ'].value_counts().reset_index()
                  .rename(columns={'GroupDeltaMZ': 'Count',
