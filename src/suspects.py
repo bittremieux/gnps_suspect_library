@@ -95,7 +95,7 @@ def filter_ids(ids: pd.DataFrame, max_ppm: float, min_shared_peaks: int) \
                (ids['SharedPeaks'] >= min_shared_peaks)]
 
 
-def filter_pairs(pairs: pd.DataFrame, min_cosine: float = 0.8) -> pd.DataFrame:
+def filter_pairs(pairs: pd.DataFrame, min_cosine: float) -> pd.DataFrame:
     """
     Only consider pairs with a cosine similarity that exceeds the given cosine
     threshold.
