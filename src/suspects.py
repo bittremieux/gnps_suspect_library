@@ -13,7 +13,7 @@ import tqdm
 import config
 
 
-def download_cluster(msv_id: str, ftp_prefix: str, max_tries: int = 5) \
+def _download_cluster(msv_id: str, ftp_prefix: str, max_tries: int = 5) \
         -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame],
                  Optional[pd.DataFrame]]:
     """
@@ -63,7 +63,8 @@ def download_cluster(msv_id: str, ftp_prefix: str, max_tries: int = 5) \
         except IOError:
             tries_left -= 1
             # Exponential back-off.
-            time.sleep(2 ** (max_tries - tries_left) / 10)
+            time.sleep(np.random.uniform(
+                high=2 ** (max_tries - tries_left) / 10))
     else:
         logger.warning('Failed to retrieve dataset %s after %d retries',
                        msv_id, max_tries)
@@ -71,7 +72,7 @@ def download_cluster(msv_id: str, ftp_prefix: str, max_tries: int = 5) \
     return None, None, None
 
 
-def filter_ids(ids: pd.DataFrame, max_ppm: float, min_shared_peaks: int) \
+def _filter_ids(ids: pd.DataFrame, max_ppm: float, min_shared_peaks: int) \
         -> pd.DataFrame:
     """
     Filter high-quality identifications according to the given maximum ppm
@@ -95,7 +96,7 @@ def filter_ids(ids: pd.DataFrame, max_ppm: float, min_shared_peaks: int) \
                (ids['SharedPeaks'] >= min_shared_peaks)]
 
 
-def filter_pairs(pairs: pd.DataFrame, min_cosine: float) -> pd.DataFrame:
+def _filter_pairs(pairs: pd.DataFrame, min_cosine: float) -> pd.DataFrame:
     """
     Only consider pairs with a cosine similarity that exceeds the given cosine
     threshold.
@@ -115,7 +116,7 @@ def filter_pairs(pairs: pd.DataFrame, min_cosine: float) -> pd.DataFrame:
     return pairs[pairs['Cosine'] >= min_cosine]
 
 
-def filter_clusters(cluster_info: pd.DataFrame) -> pd.DataFrame:
+def _filter_clusters(cluster_info: pd.DataFrame) -> pd.DataFrame:
     """
     For each cluster select as representative the scan with the highest
     precursor intensity.
@@ -142,8 +143,8 @@ def filter_clusters(cluster_info: pd.DataFrame) -> pd.DataFrame:
     return cluster_info
 
 
-def generate_suspects(ids: pd.DataFrame, pairs: pd.DataFrame,
-                      clusters: pd.DataFrame) -> pd.DataFrame:
+def _generate_suspects(ids: pd.DataFrame, pairs: pd.DataFrame,
+                       clusters: pd.DataFrame) -> pd.DataFrame:
     """
     Generate suspects from identifications and aligned spectra pairs.
     Provenance about the spectra pairs is added from the summary.
@@ -198,7 +199,7 @@ def generate_suspects(ids: pd.DataFrame, pairs: pd.DataFrame,
     return suspects
 
 
-def group_mass_shifts(
+def _group_mass_shifts(
         suspects: pd.DataFrame, mass_shift_annotations: pd.DataFrame,
         interval_width: float, bin_width: float, peak_height: float,
         max_dist: float) -> pd.DataFrame:
@@ -294,35 +295,25 @@ def group_mass_shifts(
               'SuspectPrecursorMZ', 'SuspectScanNr', 'SuspectPath']])
 
 
-if __name__ == '__main__':
-    logging.basicConfig(
-        format='{asctime} [{levelname}/{processName}] {message}',
-        style='{', level=logging.INFO)
-    logging.captureWarnings(True)
-    logger = logging.getLogger('suspect_list')
-    logger.setLevel(logging.INFO)
-
+def generate_suspects():
     # Expert-based mass shift annotations.
-    mass_shift_annotations = pd.read_csv(
-        'https://docs.google.com/spreadsheets/d/'
-        '1-xh2XpSqdsa4yU-ATpDRxmpZEH6ht982jCCATFOpkyM/'
-        'export?format=csv&gid=566878567')
+    mass_shift_annotations = pd.read_csv(config.mass_shift_annotation_url)
     mass_shift_annotations['mz delta'] = (mass_shift_annotations['mz delta']
-                                          .astype(np.float64))
+                                          .astype(float))
     mass_shift_annotations['priority'] = (mass_shift_annotations['priority']
-                                          .astype(np.uint8))
+                                          .astype(int))
 
     # Get all GNPS living data cluster results.
-    ftp_prefix = f'ftp://massive.ucsd.edu/{config.base_url}'
+    ftp_prefix = f'ftp://massive.ucsd.edu/{config.living_data_base_url}'
     # Get the MassIVE IDs for all datasets included in the living data.
     ftp = ftplib.FTP('massive.ucsd.edu')
     ftp.login()
-    ftp.cwd(f'{config.base_url}/CLUSTERINFO')
+    ftp.cwd(f'{config.living_data_base_url}/CLUSTERINFO')
     msv_ids = [filename[:filename.find('_')] for filename in ftp.nlst()]
     # Generate the suspects.
     logger.info('Retrieve cluster information')
     ids_pairs_clusters = joblib.Parallel(n_jobs=5)(
-        joblib.delayed(download_cluster)(msv_id, ftp_prefix)
+        joblib.delayed(_download_cluster)(msv_id, ftp_prefix)
         for msv_id in tqdm.tqdm(msv_ids, desc='Datasets processed',
                                 unit='dataset'))
     ids, pairs, clusters = [], [], []
@@ -336,10 +327,10 @@ if __name__ == '__main__':
     clusters = pd.concat(clusters, ignore_index=True)
     # Compile suspects from the clustering data.
     logger.info('Compile suspect pairs')
-    ids = filter_ids(ids, config.max_ppm, config.min_shared_peaks)
-    pairs = filter_pairs(pairs, config.min_cosine)
-    clusters = filter_clusters(clusters)
-    suspects_unfiltered = generate_suspects(ids, pairs, clusters)
+    ids = _filter_ids(ids, config.max_ppm, config.min_shared_peaks)
+    pairs = _filter_pairs(pairs, config.min_cosine)
+    clusters = _filter_clusters(clusters)
+    suspects_unfiltered = _generate_suspects(ids, pairs, clusters)
     suspects_unfiltered.to_csv('../../data/suspects_unfiltered.csv',
                                index=False)
 
@@ -348,7 +339,7 @@ if __name__ == '__main__':
         suspects_unfiltered['DeltaMZ'].abs() > config.min_delta_mz].copy()
     # Group and assign suspects by observed mass shift.
     logger.info('Group suspects by mass shift and assign potential rationales')
-    suspects_grouped = group_mass_shifts(
+    suspects_grouped = _group_mass_shifts(
         suspects_unfiltered, mass_shift_annotations, config.interval_width,
         config.bin_width, config.peak_height, config.max_dist)
     suspects_grouped.to_csv('../../data/suspects_grouped.csv', index=False)
