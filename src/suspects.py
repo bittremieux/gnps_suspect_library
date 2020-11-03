@@ -352,8 +352,7 @@ def generate_suspects() -> None:
         config.bin_width, config.peak_height, config.max_dist)
     suspects_grouped.to_csv('../../data/suspects_grouped.csv', index=False)
     # Ignore ungrouped suspects.
-    suspects_grouped = suspects_grouped.dropna(
-        'index', subset=['GroupDeltaMZ'])
+    suspects_grouped = suspects_grouped.dropna(subset=['GroupDeltaMZ'])
     # Only use the top suspect (by cosine score) per combination of library
     # spectrum and grouped mass shift.
     suspects_unique = (
@@ -361,8 +360,9 @@ def generate_suspects() -> None:
         .drop_duplicates(['CompoundName', 'Adduct', 'GroupDeltaMZ']))
     suspects_unique.to_csv('../../data/suspects_unique.csv', index=False)
 
-    logger.info('Total: %d suspects collected', len(suspects_unfiltered))
-    logger.info('After duplicate removal and filtering: %d unique suspects',
+    logger.info('%d suspects with non-zero mass differences collected '
+                '(%d total)', len(suspects_grouped), len(suspects_unfiltered))
+    logger.info('%d unique suspects after duplicate removal and filtering',
                 len(suspects_unique))
 
 
