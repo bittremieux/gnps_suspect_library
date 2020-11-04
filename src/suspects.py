@@ -343,12 +343,12 @@ def generate_suspects() -> None:
                                index=False)
 
     # Ignore suspects without a mass shift.
-    suspects_unfiltered = suspects_unfiltered[
+    suspects_grouped = suspects_unfiltered[
         suspects_unfiltered['DeltaMZ'].abs() > config.min_delta_mz].copy()
     # Group and assign suspects by observed mass shift.
     logger.info('Group suspects by mass shift and assign potential rationales')
     suspects_grouped = _group_mass_shifts(
-        suspects_unfiltered, mass_shift_annotations, config.interval_width,
+        suspects_grouped, mass_shift_annotations, config.interval_width,
         config.bin_width, config.peak_height, config.max_dist)
     suspects_grouped.to_csv('../../data/suspects_grouped.csv', index=False)
     # Ignore ungrouped suspects.
