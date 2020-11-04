@@ -34,4 +34,3 @@ interval_width = 1.0
 bin_width = 0.002
 peak_height = 10
 max_dist = 0.01
-min_group_size = 10
