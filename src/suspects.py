@@ -41,8 +41,9 @@ def _download_cluster(msv_id: str, ftp_prefix: str, max_tries: int = 5) \
                 f'{ftp_prefix}/IDENTIFICATIONS/'
                 f'{msv_id}_identifications.tsv',
                 sep='\t', usecols=[
-                    'Compound_Name', 'Adduct', 'Precursor_MZ', 'INCHI',
-                    'SpectrumID', '#Scan#', 'MZErrorPPM', 'SharedPeaks'])
+                    'Compound_Name', 'Ion_Source', 'Instrument', 'IonMode',
+                    'Adduct', 'Precursor_MZ', 'INCHI', 'SpectrumID', '#Scan#',
+                    'MZErrorPPM', 'SharedPeaks'])
             identifications['Dataset'] = msv_id
             pairs = pd.read_csv(
                 f'{ftp_prefix}/PAIRS/{msv_id}_pairs.tsv', sep='\t',
@@ -180,9 +181,11 @@ def _generate_suspects(ids: pd.DataFrame, pairs: pd.DataFrame,
 
     # Add provenance information for the library and suspect scans.
     suspects = (suspects[['Dataset', 'INCHI', 'Compound_Name', 'Adduct',
-                          'Cosine', 'Precursor_MZ', 'SpectrumID', '#Scan#',
+                          'Ion_Source', 'Instrument', 'IonMode', 'Cosine',
+                          'Precursor_MZ', 'SpectrumID', '#Scan#',
                           'SuspectIndex']]
                 .rename(columns={'Compound_Name': 'CompoundName',
+                                 'Ion_Source': 'IonSource',
                                  'Precursor_MZ': 'LibraryPrecursorMZ',
                                  'SpectrumID': 'LibraryID',
                                  '#Scan#': 'ClusterScanNr'}))
@@ -291,10 +294,11 @@ def _group_mass_shifts(
 
     return (suspects.sort_values(['CompoundName', 'Adduct', 'GroupDeltaMZ'])
             .reset_index(drop=True)
-            [['Dataset', 'INCHI', 'CompoundName', 'Adduct', 'DeltaMZ',
-              'GroupDeltaMZ', 'AtomicDifference', 'Rationale', 'Cosine',
-              'LibraryPrecursorMZ', 'LibraryID', 'ClusterScanNr',
-              'SuspectPrecursorMZ', 'SuspectScanNr', 'SuspectPath']])
+            [['Dataset', 'INCHI', 'CompoundName', 'Adduct', 'IonSource',
+              'Instrument', 'IonMode', 'DeltaMZ', 'GroupDeltaMZ',
+              'AtomicDifference', 'Rationale', 'Cosine', 'LibraryPrecursorMZ',
+              'LibraryID', 'ClusterScanNr', 'SuspectPrecursorMZ',
+              'SuspectScanNr', 'SuspectPath']])
 
 
 def generate_suspects() -> None:
