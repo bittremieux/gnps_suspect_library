@@ -271,12 +271,14 @@ def _group_mass_shifts(
         mask_peaks = mask_peaks[mask_mz_diffs]
         peak_assignments = mz_diffs.argmin(axis=0)
         # Assign putative explanations to the grouped mass shifts.
-        for delta_mz, peak_i in zip(bins[peaks_i], range(len(peaks_i))):
+        for peak_i in zip(range(len(peaks_i))):
             mask_delta_mz = mask_peaks[peak_assignments == peak_i]
+            delta_mz = suspects.loc[mask_delta_mz, 'DeltaMZ'].mean()
+            delta_mz_std = suspects.loc[mask_delta_mz, 'DeltaMZ'].std()
             suspects.loc[mask_delta_mz, 'GroupDeltaMZ'] = delta_mz
             putative_id = mass_shift_annotations[
                 (mass_shift_annotations['mz delta'].abs()
-                 - abs(delta_mz)).abs() < max_dist / 2].sort_values(
+                 - abs(delta_mz)).abs() < delta_mz_std].sort_values(
                 ['priority', 'atomic difference', 'rationale'])
             if len(putative_id) == 0:
                 suspects.loc[mask_delta_mz, 'AtomicDifference'] = 'unspecified'
