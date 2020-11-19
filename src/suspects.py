@@ -269,6 +269,7 @@ def _group_mass_shifts(
             for peak in bins[peaks_i]])
         # Also make sure that delta assignments don't exceed the maximum
         # distance.
+        # noinspection PyArgumentList
         mask_mz_diffs = mz_diffs.min(axis=0) < max_dist
         mz_diffs = mz_diffs[:, mask_mz_diffs]
         mask_peaks = mask_peaks[mask_mz_diffs]
