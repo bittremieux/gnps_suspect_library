@@ -202,6 +202,52 @@ def _generate_suspects(ids: pd.DataFrame, pairs: pd.DataFrame,
     return suspects
 
 
+def _clean_suspects(suspects: pd.DataFrame) -> pd.DataFrame:
+    """
+    Clean the suspects by consistently encoding certain metadata.
+
+    Parameters
+    ----------
+    suspects : pd.DataFrame
+        The suspects DataFrame to be cleaned.
+
+    Returns
+    -------
+    pd.DataFrame
+        The cleaned suspects DataFrame.
+    """
+    suspects['Instrument'] = suspects['Instrument'].replace({
+        # Hybrid FT.
+        'ESI-QFT': 'Hybrid FT', 'Hybrid Ft': 'Hybrid FT',
+        'IT-FT/ion trap with FTMS': 'Hybrid FT', 'LC-ESI-ITFT': 'Hybrid FT',
+        'LC-ESI-QFT': 'Hybrid FT', 'LTQ-FT-ICR': 'Hybrid FT',
+        # Ion Trap.
+        'CID; Velos': 'Ion Trap', 'IT/ion trap': 'Ion Trap',
+        'Ger': 'Ion Trap',  'LCQ': 'Ion Trap', 'QqIT': 'Ion Trap',
+        # qToF.
+        ' impact HD': 'qTof', 'ESI-QTOF': 'qTof', 'LC-ESI-QTOF': 'qTof',
+        'LC-Q-TOF/MS': 'qTof', 'Maxis HD qTOF': 'qTof', 'qToF': 'qTof',
+        'Maxis II HD Q-TOF Bruker': 'qTof', 'Q-TOF': 'qTof', 'qTOF': 'qTof',
+        # QQQ.
+        'LC-APPI-QQ': 'QQQ', 'LC-ESI-QQ': 'QQQ', 'QqQ': 'QQQ',
+        'Quattro_QQQ:25eV': 'QQQ', 'QqQ/triple quadrupole': 'QQQ',
+        # Orbitrap.
+        'HCD': 'Orbitrap', 'HCD; Lumos': 'Orbitrap', 'HCD; Velos': 'Orbitrap',
+        'Q-Exactive Plus': 'Orbitrap',
+        'Q-Exactive Plus Orbitrap Res 70k': 'Orbitrap',
+        'Q-Exactive Plus Orbitrap Res 14k': 'Orbitrap'
+        })
+    suspects['IonSource'] = suspects['IonSource'].replace(
+        {'CI': 'APCI', 'CI (MeOH)': 'APCI', 'ESI/APCI': 'APCI',
+         'LC-APCI': 'APCI', 'in source ESI': 'ESI', 'LC-ESI-QFT': 'LC-ESI',
+         'LC-ESIMS': 'LC-ESI', ' ': 'ESI', 'Positive': 'ESI'})
+    suspects['IonMode'] = (suspects['IonMode'].str.strip().str.capitalize()
+                           .str.split('-', 1).str[0])
+    suspects['Adduct'] = suspects['Adduct'].str.lstrip('[').str.rstrip(']+')
+    return suspects.dropna(
+        subset=['Instrument', 'IonSource', 'IonMode', 'Adduct'])
+
+
 def _group_mass_shifts(
         suspects: pd.DataFrame, mass_shift_annotations: pd.DataFrame,
         interval_width: float, bin_width: float, peak_height: float,
@@ -302,80 +348,6 @@ def _group_mass_shifts(
               'SuspectScanNr', 'SuspectPath']])
 
 
-def _export_batch_annotation_sheet(suspects: pd.DataFrame, filename: str) \
-        -> None:
-    """
-    Export the suspects as a spreadsheet that can be used as input for the
-    reference spectral library batch creation workflow.
-
-    Documentation: https://ccms-ucsd.github.io/GNPSDocumentation/batchupload/
-
-    Parameters
-    ----------
-    suspects : pd.DataFrame
-        The suspects to be exported.
-    filename : str
-        File name of the exported spreadsheet.
-    """
-    spec_lib_annotation = pd.DataFrame(index=suspects.index)
-    spec_lib_annotation['FILENAME'] = (suspects['SuspectPath']
-                                       .str.rsplit('/', 1).str[-1])
-    spec_lib_annotation['SEQ'] = '*..*'
-    spec_lib_annotation['COMPOUND_NAME'] = (
-        'Suspect related to "' + suspects['CompoundName'] +
-        '" with delta m/z ' + suspects['GroupDeltaMZ'].round(3).astype(str) +
-        ' (putative explanation: ' + suspects['Rationale'] +
-        ' ; atomic difference: ' + suspects['AtomicDifference'] + ')')
-    spec_lib_annotation['MOLECULEMASS'] = suspects['SuspectPrecursorMZ']
-    spec_lib_annotation['INSTRUMENT'] = suspects['Instrument'].replace({
-        # Hybrid FT.
-        'ESI-QFT': 'Hybrid FT', 'Hybrid Ft': 'Hybrid FT',
-        'IT-FT/ion trap with FTMS': 'Hybrid FT', 'LC-ESI-ITFT': 'Hybrid FT',
-        'LC-ESI-QFT': 'Hybrid FT', 'LTQ-FT-ICR': 'Hybrid FT',
-        # Ion Trap.
-        'CID; Velos': 'Ion Trap', 'IT/ion trap': 'Ion Trap',
-        'Ger': 'Ion Trap',  'LCQ': 'Ion Trap', 'QqIT': 'Ion Trap',
-        # qToF.
-        ' impact HD': 'qTof', 'ESI-QTOF': 'qTof', 'LC-ESI-QTOF': 'qTof',
-        'LC-Q-TOF/MS': 'qTof', 'Maxis HD qTOF': 'qTof', 'qToF': 'qTof',
-        'Maxis II HD Q-TOF Bruker': 'qTof', 'Q-TOF': 'qTof', 'qTOF': 'qTof',
-        # QQQ.
-        'LC-APPI-QQ': 'QQQ', 'LC-ESI-QQ': 'QQQ', 'QqQ': 'QQQ',
-        'Quattro_QQQ:25eV': 'QQQ', 'QqQ/triple quadrupole': 'QQQ',
-        # Orbitrap.
-        'HCD': 'Orbitrap', 'HCD; Lumos': 'Orbitrap', 'HCD; Velos': 'Orbitrap',
-        'Q-Exactive Plus': 'Orbitrap',
-        'Q-Exactive Plus Orbitrap Res 70k': 'Orbitrap',
-        'Q-Exactive Plus Orbitrap Res 14k': 'Orbitrap'
-        })
-    spec_lib_annotation['IONSOURCE'] = suspects['IonSource'].replace(
-        {'CI': 'APCI', 'CI (MeOH)': 'APCI', 'ESI/APCI': 'APCI',
-         'LC-APCI': 'APCI', 'in source ESI': 'ESI', 'LC-ESI-QFT': 'LC-ESI',
-         'LC-ESIMS': 'LC-ESI', ' ': 'ESI', 'Positive': 'ESI'})
-    spec_lib_annotation['EXTRACTSCAN'] = suspects['SuspectScanNr']
-    spec_lib_annotation['SMILES'] = 'N/A'
-    spec_lib_annotation['INCHI'] = 'N/A'
-    spec_lib_annotation['INCHIAUX'] = 'N/A'
-    spec_lib_annotation['CHARGE'] = 0
-    spec_lib_annotation['IONMODE'] = (suspects['IonMode'].str.strip()
-                                      .str.capitalize()
-                                      .str.split('-', 1).str[0])
-    spec_lib_annotation['PUBMED'] = 'N/A'
-    spec_lib_annotation['ACQUISITION'] = 'Crude'
-    spec_lib_annotation['EXACTMASS'] = 0
-    spec_lib_annotation['DATACOLLECTOR'] = 'Wout Bittremieux'
-    spec_lib_annotation['ADDUCT'] = (suspects['Adduct'].str.lstrip('[')
-                                     .str.rstrip(']+'))
-    spec_lib_annotation['INTEREST'] = 'N/A'
-    spec_lib_annotation['LIBQUALITY'] = 4
-    spec_lib_annotation['GENUS'] = 'N/A'
-    spec_lib_annotation['SPECIES'] = 'N/A'
-    spec_lib_annotation['STRAIN'] = 'N/A'
-    spec_lib_annotation['CASNUMBER'] = 'N/A'
-    spec_lib_annotation['PI'] = 'Pieter Dorrestein'
-    spec_lib_annotation.dropna().to_csv(filename, sep='\t')
-
-
 def generate_suspects() -> None:
     """
     Generate suspects from the GNPS living data results.
@@ -420,6 +392,7 @@ def generate_suspects() -> None:
     pairs = _filter_pairs(pairs, config.min_cosine)
     clusters = _filter_clusters(clusters)
     suspects_unfiltered = _generate_suspects(ids, pairs, clusters)
+    suspects_unfiltered = _clean_suspects(suspects_unfiltered)
     suspects_unfiltered.to_csv('../../data/suspects_unfiltered.csv',
                                index=False)
 
@@ -440,8 +413,6 @@ def generate_suspects() -> None:
         suspects_grouped.sort_values(['Cosine'], ascending=False)
         .drop_duplicates(['CompoundName', 'Adduct', 'GroupDeltaMZ']))
     suspects_unique.to_csv('../../data/suspects_unique.csv', index=False)
-    _export_batch_annotation_sheet(
-        suspects_unique, '../../data/spec_lib_annotation.tsv')
 
     logger.info('%d suspects with non-zero mass differences collected '
                 '(%d total)', len(suspects_grouped), len(suspects_unfiltered))
