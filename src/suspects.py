@@ -13,6 +13,8 @@ import tqdm
 import config
 
 
+logger = logging.getLogger('suspect_list')
+
 def _download_cluster(msv_id: str, ftp_prefix: str, max_tries: int = 5) \
         -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame],
                  Optional[pd.DataFrame]]:
@@ -412,7 +414,6 @@ if __name__ == '__main__':
         format='{asctime} [{levelname}/{processName}] {message}',
         style='{', level=logging.INFO)
     logging.captureWarnings(True)
-    logger = logging.getLogger('suspect_list')
     logger.setLevel(logging.INFO)
 
     generate_suspects()
