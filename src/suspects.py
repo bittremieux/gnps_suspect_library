@@ -79,6 +79,9 @@ def _filter_ids(ids: pd.DataFrame, max_ppm: float, min_shared_peaks: int) \
     Filter high-quality identifications according to the given maximum ppm
     deviation and minimum number of shared peaks.
 
+    Clean the identifications metadata (instrument, ion source, ion mode,
+    adduct).
+
     Arguments
     ---------
     ids : pd.DataFrame
@@ -93,8 +96,39 @@ def _filter_ids(ids: pd.DataFrame, max_ppm: float, min_shared_peaks: int) \
     pd.DataFrame
         The identifications retained after filtering.
     """
-    return ids[(ids['MZErrorPPM'].abs() <= max_ppm) &
-               (ids['SharedPeaks'] >= min_shared_peaks)]
+    # Clean the identifications metadata.
+    ids['Instrument'] = ids['Instrument'].replace({
+        # Hybrid FT.
+        'ESI-QFT': 'Hybrid FT', 'Hybrid Ft': 'Hybrid FT',
+        'IT-FT/ion trap with FTMS': 'Hybrid FT', 'LC-ESI-ITFT': 'Hybrid FT',
+        'LC-ESI-QFT': 'Hybrid FT', 'LTQ-FT-ICR': 'Hybrid FT',
+        # Ion Trap.
+        'CID; Velos': 'Ion Trap', 'IT/ion trap': 'Ion Trap',
+        'Ger': 'Ion Trap',  'LCQ': 'Ion Trap', 'QqIT': 'Ion Trap',
+        # qToF.
+        ' impact HD': 'qTof', 'ESI-QTOF': 'qTof', 'LC-ESI-QTOF': 'qTof',
+        'LC-Q-TOF/MS': 'qTof', 'Maxis HD qTOF': 'qTof', 'qToF': 'qTof',
+        'Maxis II HD Q-TOF Bruker': 'qTof', 'Q-TOF': 'qTof', 'qTOF': 'qTof',
+        # QQQ.
+        'LC-APPI-QQ': 'QQQ', 'LC-ESI-QQ': 'QQQ', 'QqQ': 'QQQ',
+        'Quattro_QQQ:25eV': 'QQQ', 'QqQ/triple quadrupole': 'QQQ',
+        # Orbitrap.
+        'HCD': 'Orbitrap', 'HCD; Lumos': 'Orbitrap', 'HCD; Velos': 'Orbitrap',
+        'Q-Exactive Plus': 'Orbitrap',
+        'Q-Exactive Plus Orbitrap Res 70k': 'Orbitrap',
+        'Q-Exactive Plus Orbitrap Res 14k': 'Orbitrap'
+        })
+    ids['IonSource'] = ids['IonSource'].replace(
+        {'CI': 'APCI', 'CI (MeOH)': 'APCI', 'ESI/APCI': 'APCI',
+         'LC-APCI': 'APCI', 'in source ESI': 'ESI', 'LC-ESI-QFT': 'LC-ESI',
+         'LC-ESIMS': 'LC-ESI', ' ': 'ESI', 'Positive': 'ESI'})
+    ids['IonMode'] = (ids['IonMode'].str.strip().str.capitalize()
+                      .str.split('-', 1).str[0])
+    ids['Adduct'] = ids['Adduct'].str.lstrip('[').str.rstrip(']+')
+
+    return (ids[(ids['MZErrorPPM'].abs() <= max_ppm) &
+                (ids['SharedPeaks'] >= min_shared_peaks)]
+            .dropna(subset=['Instrument', 'IonSource', 'IonMode', 'Adduct']))
 
 
 def _filter_pairs(pairs: pd.DataFrame, min_cosine: float) -> pd.DataFrame:
@@ -200,52 +234,6 @@ def _generate_suspects(ids: pd.DataFrame, pairs: pd.DataFrame,
                            suspects['LibraryPrecursorMZ'])
     suspects['GroupDeltaMZ'] = np.nan
     return suspects
-
-
-def _clean_suspects(suspects: pd.DataFrame) -> pd.DataFrame:
-    """
-    Clean the suspects by consistently encoding certain metadata.
-
-    Parameters
-    ----------
-    suspects : pd.DataFrame
-        The suspects DataFrame to be cleaned.
-
-    Returns
-    -------
-    pd.DataFrame
-        The cleaned suspects DataFrame.
-    """
-    suspects['Instrument'] = suspects['Instrument'].replace({
-        # Hybrid FT.
-        'ESI-QFT': 'Hybrid FT', 'Hybrid Ft': 'Hybrid FT',
-        'IT-FT/ion trap with FTMS': 'Hybrid FT', 'LC-ESI-ITFT': 'Hybrid FT',
-        'LC-ESI-QFT': 'Hybrid FT', 'LTQ-FT-ICR': 'Hybrid FT',
-        # Ion Trap.
-        'CID; Velos': 'Ion Trap', 'IT/ion trap': 'Ion Trap',
-        'Ger': 'Ion Trap',  'LCQ': 'Ion Trap', 'QqIT': 'Ion Trap',
-        # qToF.
-        ' impact HD': 'qTof', 'ESI-QTOF': 'qTof', 'LC-ESI-QTOF': 'qTof',
-        'LC-Q-TOF/MS': 'qTof', 'Maxis HD qTOF': 'qTof', 'qToF': 'qTof',
-        'Maxis II HD Q-TOF Bruker': 'qTof', 'Q-TOF': 'qTof', 'qTOF': 'qTof',
-        # QQQ.
-        'LC-APPI-QQ': 'QQQ', 'LC-ESI-QQ': 'QQQ', 'QqQ': 'QQQ',
-        'Quattro_QQQ:25eV': 'QQQ', 'QqQ/triple quadrupole': 'QQQ',
-        # Orbitrap.
-        'HCD': 'Orbitrap', 'HCD; Lumos': 'Orbitrap', 'HCD; Velos': 'Orbitrap',
-        'Q-Exactive Plus': 'Orbitrap',
-        'Q-Exactive Plus Orbitrap Res 70k': 'Orbitrap',
-        'Q-Exactive Plus Orbitrap Res 14k': 'Orbitrap'
-        })
-    suspects['IonSource'] = suspects['IonSource'].replace(
-        {'CI': 'APCI', 'CI (MeOH)': 'APCI', 'ESI/APCI': 'APCI',
-         'LC-APCI': 'APCI', 'in source ESI': 'ESI', 'LC-ESI-QFT': 'LC-ESI',
-         'LC-ESIMS': 'LC-ESI', ' ': 'ESI', 'Positive': 'ESI'})
-    suspects['IonMode'] = (suspects['IonMode'].str.strip().str.capitalize()
-                           .str.split('-', 1).str[0])
-    suspects['Adduct'] = suspects['Adduct'].str.lstrip('[').str.rstrip(']+')
-    return suspects.dropna(
-        subset=['Instrument', 'IonSource', 'IonMode', 'Adduct'])
 
 
 def _group_mass_shifts(
@@ -392,7 +380,6 @@ def generate_suspects() -> None:
     pairs = _filter_pairs(pairs, config.min_cosine)
     clusters = _filter_clusters(clusters)
     suspects_unfiltered = _generate_suspects(ids, pairs, clusters)
-    suspects_unfiltered = _clean_suspects(suspects_unfiltered)
     suspects_unfiltered.to_csv('../../data/suspects_unfiltered.csv',
                                index=False)
 
