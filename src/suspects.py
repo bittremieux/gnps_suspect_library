@@ -147,7 +147,7 @@ def _filter_ids(ids: pd.DataFrame, max_ppm: float, min_shared_peaks: int) \
         'Q-Exactive Plus Orbitrap Res 70k': 'Orbitrap',
         'Q-Exactive Plus Orbitrap Res 14k': 'Orbitrap'
         })
-    ids['IonSource'] = ids['IonSource'].replace(
+    ids['Ion_Source'] = ids['Ion_Source'].replace(
         {'CI': 'APCI', 'CI (MeOH)': 'APCI', 'ESI/APCI': 'APCI',
          'LC-APCI': 'APCI', 'in source ESI': 'ESI', 'LC-ESI-QFT': 'LC-ESI',
          'LC-ESIMS': 'LC-ESI', ' ': 'ESI', 'Positive': 'ESI'})
@@ -157,7 +157,7 @@ def _filter_ids(ids: pd.DataFrame, max_ppm: float, min_shared_peaks: int) \
 
     return (ids[(ids['MZErrorPPM'].abs() <= max_ppm) &
                 (ids['SharedPeaks'] >= min_shared_peaks)]
-            .dropna(subset=['Instrument', 'IonSource', 'IonMode', 'Adduct']))
+            .dropna(subset=['Instrument', 'Ion_Source', 'IonMode', 'Adduct']))
 
 
 def _clean_adduct(adduct: str) -> str:
