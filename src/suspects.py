@@ -464,6 +464,8 @@ def _group_mass_shifts(
                 suspects.loc[mask_delta_mz, 'Rationale'] = '|'.join(
                     putative_id['rationale'].fillna('unspecified'))
 
+    suspects['DeltaMZ'] = suspects['DeltaMZ'].round(3)
+    suspects['GroupDeltaMZ'] = suspects['GroupDeltaMZ'].round(3)
     return (suspects.sort_values(['CompoundName', 'Adduct', 'GroupDeltaMZ'])
             .reset_index(drop=True)
             [['Dataset', 'INCHI', 'CompoundName', 'Adduct', 'IonSource',
@@ -535,7 +537,8 @@ def generate_suspects() -> None:
     # spectrum and grouped mass shift.
     suspects_unique = (
         suspects_grouped.sort_values(['Cosine'], ascending=False)
-        .drop_duplicates(['CompoundName', 'Adduct', 'GroupDeltaMZ']))
+        .drop_duplicates(['CompoundName', 'Adduct', 'GroupDeltaMZ'])
+        .sort_values(['CompoundName', 'Adduct', 'GroupDeltaMZ']))
     suspects_unique.to_csv('../../data/suspects_unique.csv', index=False)
 
     logger.info('%d suspects with non-zero mass differences collected '
