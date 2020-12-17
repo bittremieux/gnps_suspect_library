@@ -153,7 +153,7 @@ def _filter_ids(ids: pd.DataFrame, max_ppm: float, min_shared_peaks: int) \
          'LC-ESIMS': 'LC-ESI', ' ': 'ESI', 'Positive': 'ESI'})
     ids['IonMode'] = (ids['IonMode'].str.strip().str.capitalize()
                       .str.split('-', 1).str[0])
-    ids['Adduct'] = ids['Adduct'].apply(_clean_adduct)
+    ids['Adduct'] = ids['Adduct'].astype(str).apply(_clean_adduct)
 
     return (ids[(ids['MZErrorPPM'].abs() <= max_ppm) &
                 (ids['SharedPeaks'] >= min_shared_peaks)]
