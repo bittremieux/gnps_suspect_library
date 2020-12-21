@@ -304,6 +304,9 @@ def _filter_clusters(cluster_info: pd.DataFrame) -> pd.DataFrame:
         Clusters without duplicated spectra by keeping only the scan with the
         highest precursor intensity for each cluster.
     """
+    cluster_info = cluster_info.dropna(subset=['ScanNumber'])
+    cluster_info['ScanNumber'] = cluster_info['ScanNumber'].astype(int)
+    cluster_info = cluster_info[cluster_info['ScanNumber'] >= 0]
     cluster_info = (
         cluster_info.reindex(cluster_info.groupby(
             ['Dataset', 'cluster index'])['sum(precursor intensity)'].idxmax())
@@ -311,7 +314,6 @@ def _filter_clusters(cluster_info: pd.DataFrame) -> pd.DataFrame:
         [['Dataset', 'cluster index', 'parent mass', 'ScanNumber',
           'Original_Path']])
     cluster_info['cluster index'] = cluster_info['cluster index'].astype(int)
-    cluster_info['ScanNumber'] = cluster_info['ScanNumber'].astype(int)
     return cluster_info
 
 
