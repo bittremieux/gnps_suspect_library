@@ -477,6 +477,32 @@ def _group_mass_shifts(
               'SuspectScanNr', 'SuspectPath']])
 
 
+def _get_adduct_n_elements(adducts: pd.Series) -> pd.Series:
+    """
+    Determine how many components the adducts consist of.
+
+    Parameters
+    ----------
+    adducts : pd.Series
+        A Series with different adducts.
+
+    Returns
+    -------
+    pd.Series
+        A Series with the number of components for the corresponding adducts.
+        Unknown adducts are assigned "infinity" components.
+    """
+    counts = []
+    for adduct in adducts:
+        if adduct == 'unknown':
+            counts.append(np.inf)
+        else:
+            n = sum([_get_adduct_count(split)[0] for split in re.split(
+                '[+-]', adduct[adduct.find('[') + 1:adduct.rfind(']')])])
+            counts.append(n if n > 1 else np.inf)
+    return pd.Series(counts)
+
+
 def generate_suspects() -> None:
     """
     Generate suspects from the GNPS living data results.
@@ -535,11 +561,16 @@ def generate_suspects() -> None:
     suspects_grouped.to_csv('../../data/suspects_grouped.csv', index=False)
     # Ignore ungrouped suspects.
     suspects_grouped = suspects_grouped.dropna(subset=['GroupDeltaMZ'])
-    # Only use the top suspect (by cosine score) per combination of library
-    # spectrum and grouped mass shift.
+
+    # 1. Only use the top suspect (by cosine score) per combination of library
+    #    spectrum and grouped mass shift.
+    # 2. Avoid repeated occurrences of the same suspect with different adducts.
     suspects_unique = (
-        suspects_grouped.sort_values(['Cosine'], ascending=False)
+        suspects_grouped
+        .sort_values('Cosine', ascending=False)
         .drop_duplicates(['CompoundName', 'Adduct', 'GroupDeltaMZ'])
+        .sort_values('Adduct', key=_get_adduct_n_elements)
+        .drop_duplicates(['CompoundName', 'SuspectPath', 'SuspectScanNr'])
         .sort_values(['CompoundName', 'Adduct', 'GroupDeltaMZ']))
     suspects_unique.to_csv('../../data/suspects_unique.csv', index=False)
 
