@@ -547,8 +547,8 @@ def generate_suspects() -> None:
     pairs = _filter_pairs(pairs, config.min_cosine)
     clusters = _filter_clusters(clusters)
     suspects_unfiltered = _generate_suspects(ids, pairs, clusters)
-    suspects_unfiltered.to_csv('../../data/interim/suspects_unfiltered.csv',
-                               index=False)
+    suspects_unfiltered.to_csv('../../data/interim/suspects_unfiltered.csv.xz',
+                               index=False, compression='xz')
 
     # Ignore suspects without a mass shift.
     suspects_grouped = suspects_unfiltered[
@@ -558,8 +558,8 @@ def generate_suspects() -> None:
     suspects_grouped = _group_mass_shifts(
         suspects_grouped, mass_shift_annotations, config.interval_width,
         config.bin_width, config.peak_height, config.max_dist)
-    suspects_grouped.to_csv('../../data/interim/suspects_grouped.csv',
-                            index=False)
+    suspects_grouped.to_csv('../../data/interim/suspects_grouped.csv.xz',
+                            index=False, compression='xz')
     # Ignore ungrouped suspects.
     suspects_grouped = suspects_grouped.dropna(subset=['GroupDeltaMZ'])
 
@@ -573,8 +573,8 @@ def generate_suspects() -> None:
         .sort_values('Adduct', key=_get_adduct_n_elements)
         .drop_duplicates(['CompoundName', 'SuspectPath', 'SuspectScanNr'])
         .sort_values(['CompoundName', 'Adduct', 'GroupDeltaMZ']))
-    suspects_unique.to_csv('../../data/interim/suspects_unique.csv',
-                           index=False)
+    suspects_unique.to_csv('../../data/interim/suspects_unique.csv.xz',
+                           index=False, compression='xz')
 
     logger.info('%d suspects with non-zero mass differences collected '
                 '(%d total)', len(suspects_grouped), len(suspects_unfiltered))
