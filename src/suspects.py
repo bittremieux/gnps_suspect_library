@@ -2,6 +2,7 @@ import ftplib
 import logging
 import math
 import operator
+import os
 import re
 import time
 from typing import Optional, Tuple
@@ -61,34 +62,67 @@ def _download_cluster(msv_id: str, ftp_prefix: str, max_tries: int = 5) \
     Returns
     -------
     Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
-        A tuple of the identifications, pairs, and clustering DataFrames.
+        A tuple of the identifications, pairs, and cluster_info DataFrames.
     """
     tries_left = max_tries
     while tries_left > 0:
         try:
-            identifications = pd.read_csv(
-                f'{ftp_prefix}/IDENTIFICATIONS/'
-                f'{msv_id}_identifications.tsv',
-                sep='\t', usecols=[
-                    'Compound_Name', 'Ion_Source', 'Instrument', 'IonMode',
-                    'Adduct', 'Precursor_MZ', 'INCHI', 'SpectrumID', '#Scan#',
-                    'MZErrorPPM', 'SharedPeaks'])
-            identifications['Dataset'] = msv_id
-            pairs = pd.read_csv(
-                f'{ftp_prefix}/PAIRS/{msv_id}_pairs.tsv', sep='\t',
-                usecols=['CLUSTERID1', 'CLUSTERID2', 'Cosine'])
-            pairs['Dataset'] = msv_id
-            clustering = pd.read_csv(
-                f'{ftp_prefix}/CLUSTERINFO/{msv_id}_clustering.tsv',
-                sep='\t', usecols=[
-                    'cluster index', 'sum(precursor intensity)',
-                    'parent mass', 'Original_Path', 'ScanNumber'])
-            clustering['Dataset'] = msv_id
+            identifications = (
+                pd.read_csv(f'{ftp_prefix}/IDENTIFICATIONS/'
+                            f'{msv_id}_identifications.tsv',
+                            sep='\t', usecols=['Compound_Name', 'Ion_Source',
+                                               'Instrument', 'IonMode',
+                                               'Adduct', 'Precursor_MZ',
+                                               'INCHI', 'SpectrumID', '#Scan#',
+                                               'MZErrorPPM', 'SharedPeaks'])
+                .rename(columns={'Compound_Name': 'CompoundName',
+                                 'Ion_Source': 'IonSource',
+                                 'Precursor_MZ': 'LibraryPrecursorMass',
+                                 'INCHI': 'InChI',
+                                 'SpectrumID': 'LibraryUsi',
+                                 '#Scan#': 'ClusterId',
+                                 'MZErrorPPM': 'MzErrorPpm'}))
+            identifications['ClusterId'] = \
+                f'{msv_id}:scan:' + identifications['ClusterId'].astype(str)
+            identifications['LibraryUsi'] = (
+                    'mzspec:GNPS:GNPS-LIBRARY:accession:' +
+                    identifications['LibraryUsi'])
+            pairs = (
+                pd.read_csv(f'{ftp_prefix}/PAIRS/{msv_id}_pairs.tsv', sep='\t',
+                            usecols=['CLUSTERID1', 'CLUSTERID2', 'Cosine'])
+                .rename(columns={'CLUSTERID1': 'ClusterId1',
+                                 'CLUSTERID2': 'ClusterId2'}))
+            pairs['ClusterId1'] = (f'{msv_id}:scan:' +
+                                   pairs['ClusterId1'].astype(str))
+            pairs['ClusterId2'] = (f'{msv_id}:scan:' +
+                                   pairs['ClusterId2'].astype(str))
+            cluster_info = (
+                pd.read_csv(
+                    f'{ftp_prefix}/CLUSTERINFO/{msv_id}_clustering.tsv',
+                    sep='\t', usecols=['cluster index',
+                                       'sum(precursor intensity)',
+                                       'parent mass', 'Original_Path',
+                                       'ScanNumber'])
+                .rename(columns={
+                    'cluster index': 'ClusterId',
+                    'sum(precursor intensity)': 'PrecursorIntensity',
+                    'parent mass': 'SuspectPrecursorMass'}))
+            cluster_info['ClusterId'] = \
+                f'{msv_id}:scan:' + cluster_info['ClusterId'].astype(str)
+            cluster_info = cluster_info.dropna(subset=['ScanNumber'])
+            cluster_info['ScanNumber'] = cluster_info['ScanNumber'].astype(int)
+            cluster_info = cluster_info[cluster_info['ScanNumber'] >= 0]
+            cluster_info['SuspectUsi'] = (
+                    f'mzspec:{msv_id}:' +
+                    cluster_info['Original_Path'].apply(os.path.basename) +
+                    ':scan:' + cluster_info['ScanNumber'].astype(str))
+            cluster_info = cluster_info[['ClusterId', 'PrecursorIntensity',
+                                         'SuspectPrecursorMass', 'SuspectUsi']]
 
-            return identifications, pairs, clustering
-        except ValueError:
-            logger.warning('Error while attempting to retrieve dataset %s',
-                           msv_id)
+            return identifications, pairs, cluster_info
+        except ValueError as e:
+            logger.warning('Error while attempting to retrieve dataset %s: %s',
+                           msv_id, e)
             break
         except IOError:
             tries_left -= 1
@@ -147,17 +181,18 @@ def _filter_ids(ids: pd.DataFrame, max_ppm: float, min_shared_peaks: int) \
         'Q-Exactive Plus Orbitrap Res 70k': 'Orbitrap',
         'Q-Exactive Plus Orbitrap Res 14k': 'Orbitrap'
         })
-    ids['Ion_Source'] = ids['Ion_Source'].replace(
-        {'CI': 'APCI', 'CI (MeOH)': 'APCI', 'ESI/APCI': 'APCI',
-         'LC-APCI': 'APCI', 'in source ESI': 'ESI', 'LC-ESI-QFT': 'LC-ESI',
-         'LC-ESIMS': 'LC-ESI', ' ': 'ESI', 'Positive': 'ESI'})
+    ids['IonSource'] = ids['IonSource'].replace(
+        {'CI': 'APCI', 'CI (MeOH)': 'APCI', 'DI-ESI': 'ESI',
+         'ESI/APCI': 'APCI', 'LC-APCI': 'APCI', 'in source ESI': 'ESI',
+         'LC-ESI-QFT': 'LC-ESI', 'LC-ESIMS': 'LC-ESI', ' ': 'ESI',
+         'Positive': 'ESI'})
     ids['IonMode'] = (ids['IonMode'].str.strip().str.capitalize()
                       .str.split('-', 1).str[0])
     ids['Adduct'] = ids['Adduct'].astype(str).apply(_clean_adduct)
 
-    return (ids[(ids['MZErrorPPM'].abs() <= max_ppm) &
+    return (ids[(ids['MzErrorPpm'].abs() <= max_ppm) &
                 (ids['SharedPeaks'] >= min_shared_peaks)]
-            .dropna(subset=['Instrument', 'Ion_Source', 'IonMode', 'Adduct']))
+            .dropna(subset=['Instrument', 'IonSource', 'IonMode', 'Adduct']))
 
 
 def _clean_adduct(adduct: str) -> str:
@@ -304,16 +339,10 @@ def _filter_clusters(cluster_info: pd.DataFrame) -> pd.DataFrame:
         Clusters without duplicated spectra by keeping only the scan with the
         highest precursor intensity for each cluster.
     """
-    cluster_info = cluster_info.dropna(subset=['ScanNumber'])
-    cluster_info['ScanNumber'] = cluster_info['ScanNumber'].astype(int)
-    cluster_info = cluster_info[cluster_info['ScanNumber'] >= 0]
-    cluster_info = (
-        cluster_info.reindex(cluster_info.groupby(
-            ['Dataset', 'cluster index'])['sum(precursor intensity)'].idxmax())
-        .dropna().reset_index(drop=True)
-        [['Dataset', 'cluster index', 'parent mass', 'ScanNumber',
-          'Original_Path']])
-    cluster_info['cluster index'] = cluster_info['cluster index'].astype(int)
+    cluster_info = (cluster_info.reindex(cluster_info.groupby('ClusterId')
+                                         ['PrecursorIntensity'].idxmax())
+                    .dropna().reset_index(drop=True)
+                    [['ClusterId', 'SuspectPrecursorMass', 'SuspectUsi']])
     return cluster_info
 
 
@@ -340,38 +369,25 @@ def _generate_suspects(ids: pd.DataFrame, pairs: pd.DataFrame,
     """
     # Form suspects of library and unidentified spectra pairs.
     suspects = pd.concat([
-        pd.merge(pairs, ids,
-                 left_on=['Dataset', 'CLUSTERID1'],
-                 right_on=['Dataset', '#Scan#'])
-        .drop(columns=['CLUSTERID1'])
-        .rename(columns={'CLUSTERID2': 'SuspectIndex'}),
-        pd.merge(pairs, ids,
-                 left_on=['Dataset', 'CLUSTERID2'],
-                 right_on=['Dataset', '#Scan#'])
-        .drop(columns=['CLUSTERID2'])
-        .rename(columns={'CLUSTERID1': 'SuspectIndex'})],
+        pd.merge(pairs, ids, left_on='ClusterId1', right_on='ClusterId')
+        .drop(columns=['ClusterId', 'ClusterId1'])
+        .rename(columns={'ClusterId2': 'ClusterId'}),
+        pd.merge(pairs, ids, left_on='ClusterId2', right_on='ClusterId')
+        .drop(columns=['ClusterId', 'ClusterId2'])
+        .rename(columns={'ClusterId1': 'ClusterId'})],
         ignore_index=True, sort=False)
 
     # Add provenance information for the library and suspect scans.
-    suspects = (suspects[['Dataset', 'INCHI', 'Compound_Name', 'Adduct',
-                          'Ion_Source', 'Instrument', 'IonMode', 'Cosine',
-                          'Precursor_MZ', 'SpectrumID', '#Scan#',
-                          'SuspectIndex']]
-                .rename(columns={'Compound_Name': 'CompoundName',
-                                 'Ion_Source': 'IonSource',
-                                 'Precursor_MZ': 'LibraryPrecursorMZ',
-                                 'SpectrumID': 'LibraryID',
-                                 '#Scan#': 'ClusterScanNr'}))
-    suspects = (pd.merge(suspects, clusters,
-                         left_on=['Dataset', 'SuspectIndex'],
-                         right_on=['Dataset', 'cluster index'])
-                .drop(columns=['SuspectIndex', 'cluster index'])
-                .rename(columns={'parent mass': 'SuspectPrecursorMZ',
-                                 'Original_Path': 'SuspectPath',
-                                 'ScanNumber': 'SuspectScanNr'}))
-    suspects['DeltaMZ'] = (suspects['SuspectPrecursorMZ'] -
-                           suspects['LibraryPrecursorMZ'])
-    suspects['GroupDeltaMZ'] = np.nan
+    suspects = pd.merge(suspects, clusters, on='ClusterId')
+    suspects = suspects[['InChI', 'CompoundName', 'Adduct', 'IonSource',
+                         'Instrument', 'IonMode', 'Cosine', 'LibraryUsi',
+                         'SuspectUsi', 'LibraryPrecursorMass',
+                         'SuspectPrecursorMass']]
+    suspects['DeltaMass'] = (suspects['SuspectPrecursorMass'] -
+                             suspects['LibraryPrecursorMass'])
+    suspects['GroupDeltaMass'] = np.nan
+    suspects['AtomicDifference'] = np.nan
+    suspects['Rationale'] = np.nan
     return suspects
 
 
@@ -380,9 +396,9 @@ def _group_mass_shifts(
         interval_width: float, bin_width: float, peak_height: float,
         max_dist: float) -> pd.DataFrame:
     """
-    Group close mass shifts.
+    Group similar mass shifts.
 
-    Mass shifts are binned and the group delta m/z is detected by finding
+    Mass shifts are binned and the group delta mass is detected by finding
     peaks in the histogram. Grouped mass shifts are assigned potential
     explanations from the given mass shift annotations. If no annotation can be
     found for a certain group, the rationale and atomic difference will be
@@ -403,7 +419,7 @@ def _group_mass_shifts(
     peak_height : float
         The minimum height for a peak to be considered as a group.
     max_dist : float
-        The maximum m/z difference that group members can have with the
+        The maximum mass difference that group members can have with the
         group's peak.
 
     Returns
@@ -413,10 +429,11 @@ def _group_mass_shifts(
         applicable).
     """
     # Assign putative identifications to the mass shifts.
-    for mz in np.arange(math.floor(suspects['DeltaMZ'].min()),
-                        math.ceil(suspects['DeltaMZ'].max() + interval_width),
-                        interval_width):
-        suspects_interval = suspects[suspects['DeltaMZ'].between(
+    for mz in np.arange(
+            math.floor(suspects['DeltaMass'].min()),
+            math.ceil(suspects['DeltaMass'].max() + interval_width),
+            interval_width):
+        suspects_interval = suspects[suspects['DeltaMass'].between(
             mz - interval_width / 2, mz + interval_width / 2)]
         if len(suspects_interval) == 0:
             continue
@@ -425,7 +442,7 @@ def _group_mass_shifts(
                             mz + interval_width / 2,
                             int(interval_width / bin_width) + 1)
                 + bin_width / 2)
-        hist, _ = np.histogram(suspects_interval['DeltaMZ'], bins=bins)
+        hist, _ = np.histogram(suspects_interval['DeltaMass'], bins=bins)
         peaks_i, prominences = ssignal.find_peaks(
             hist, height=peak_height, distance=max_dist / bin_width,
             prominence=(None, None))
@@ -433,12 +450,12 @@ def _group_mass_shifts(
             continue
         # Assign deltas to their closest peak.
         mask_peaks = np.unique(np.hstack(
-            [suspects_interval.index[suspects_interval['DeltaMZ']
+            [suspects_interval.index[suspects_interval['DeltaMass']
                                      .between(min_mz, max_mz)]
              for min_mz, max_mz in zip(bins[prominences['left_bases']],
                                        bins[prominences['right_bases']])]))
         mz_diffs = np.vstack([
-            np.abs(suspects.loc[mask_peaks, 'DeltaMZ'] - peak)
+            np.abs(suspects.loc[mask_peaks, 'DeltaMass'] - peak)
             for peak in bins[peaks_i]])
         # Also make sure that delta assignments don't exceed the maximum
         # distance.
@@ -450,9 +467,9 @@ def _group_mass_shifts(
         # Assign putative explanations to the grouped mass shifts.
         for peak_i in zip(range(len(peaks_i))):
             mask_delta_mz = mask_peaks[peak_assignments == peak_i]
-            delta_mz = suspects.loc[mask_delta_mz, 'DeltaMZ'].mean()
-            delta_mz_std = suspects.loc[mask_delta_mz, 'DeltaMZ'].std()
-            suspects.loc[mask_delta_mz, 'GroupDeltaMZ'] = delta_mz
+            delta_mz = suspects.loc[mask_delta_mz, 'DeltaMass'].mean()
+            delta_mz_std = suspects.loc[mask_delta_mz, 'DeltaMass'].std()
+            suspects.loc[mask_delta_mz, 'GroupDeltaMass'] = delta_mz
             putative_id = mass_shift_annotations[
                 (mass_shift_annotations['mz delta'].abs()
                  - abs(delta_mz)).abs() < delta_mz_std].sort_values(
@@ -466,15 +483,14 @@ def _group_mass_shifts(
                 suspects.loc[mask_delta_mz, 'Rationale'] = '|'.join(
                     putative_id['rationale'].fillna('unspecified'))
 
-    suspects['DeltaMZ'] = suspects['DeltaMZ'].round(3)
-    suspects['GroupDeltaMZ'] = suspects['GroupDeltaMZ'].round(3)
-    return (suspects.sort_values(['CompoundName', 'Adduct', 'GroupDeltaMZ'])
+    suspects['DeltaMass'] = suspects['DeltaMass'].round(3)
+    suspects['GroupDeltaMass'] = suspects['GroupDeltaMass'].round(3)
+    return (suspects.sort_values(['CompoundName', 'Adduct', 'GroupDeltaMass'])
             .reset_index(drop=True)
-            [['Dataset', 'INCHI', 'CompoundName', 'Adduct', 'IonSource',
-              'Instrument', 'IonMode', 'DeltaMZ', 'GroupDeltaMZ',
-              'AtomicDifference', 'Rationale', 'Cosine', 'LibraryPrecursorMZ',
-              'LibraryID', 'ClusterScanNr', 'SuspectPrecursorMZ',
-              'SuspectScanNr', 'SuspectPath']])
+            [['InChI', 'CompoundName', 'Adduct', 'IonSource', 'Instrument',
+              'IonMode', 'Cosine', 'LibraryUsi', 'SuspectUsi',
+              'LibraryPrecursorMass', 'SuspectPrecursorMass', 'DeltaMass',
+              'GroupDeltaMass', 'AtomicDifference', 'Rationale']])
 
 
 def _get_adduct_n_elements(adducts: pd.Series) -> pd.Series:
@@ -548,20 +564,22 @@ def generate_suspects() -> None:
     clusters = _filter_clusters(clusters)
     suspects_unfiltered = _generate_suspects(ids, pairs, clusters)
     suspects_unfiltered.to_csv('../../data/interim/suspects_unfiltered.csv.xz',
-                               index=False, compression='xz')
+                               index=False)
 
     # Ignore suspects without a mass shift.
     suspects_grouped = suspects_unfiltered[
-        suspects_unfiltered['DeltaMZ'].abs() > config.min_delta_mz].copy()
+        suspects_unfiltered['DeltaMass'].abs() > config.min_delta_mz].copy()
     # Group and assign suspects by observed mass shift.
     logger.info('Group suspects by mass shift and assign potential rationales')
     suspects_grouped = _group_mass_shifts(
         suspects_grouped, mass_shift_annotations, config.interval_width,
         config.bin_width, config.peak_height, config.max_dist)
     suspects_grouped.to_csv('../../data/interim/suspects_grouped.csv.xz',
-                            index=False, compression='xz')
+                            index=False)
     # Ignore ungrouped suspects.
-    suspects_grouped = suspects_grouped.dropna(subset=['GroupDeltaMZ'])
+    suspects_grouped = suspects_grouped.dropna(subset=['GroupDeltaMass'])
+    logger.info('%d suspects with non-zero mass differences collected '
+                '(%d total)', len(suspects_grouped), len(suspects_unfiltered))
 
     # 1. Only use the top suspect (by cosine score) per combination of library
     #    spectrum and grouped mass shift.
@@ -569,15 +587,12 @@ def generate_suspects() -> None:
     suspects_unique = (
         suspects_grouped
         .sort_values('Cosine', ascending=False)
-        .drop_duplicates(['CompoundName', 'Adduct', 'GroupDeltaMZ'])
+        .drop_duplicates(['CompoundName', 'Adduct', 'GroupDeltaMass'])
         .sort_values('Adduct', key=_get_adduct_n_elements)
-        .drop_duplicates(['CompoundName', 'SuspectPath', 'SuspectScanNr'])
-        .sort_values(['CompoundName', 'Adduct', 'GroupDeltaMZ']))
+        .drop_duplicates(['CompoundName', 'SuspectUsi'])
+        .sort_values(['CompoundName', 'Adduct', 'GroupDeltaMass']))
     suspects_unique.to_csv('../../data/interim/suspects_unique.csv.xz',
-                           index=False, compression='xz')
-
-    logger.info('%d suspects with non-zero mass differences collected '
-                '(%d total)', len(suspects_grouped), len(suspects_unfiltered))
+                           index=False)
     logger.info('%d unique suspects after duplicate removal and filtering',
                 len(suspects_unique))
 
