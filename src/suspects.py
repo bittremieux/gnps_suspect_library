@@ -60,10 +60,22 @@ def generate_suspects() -> None:
                                           .astype(int))
 
     # Get the clustering data per individual dataset.
-    ids, pairs, clusters = _generate_suspects_per_dataset(
+    clusters_individual = _generate_suspects_per_dataset(
         config.living_data_base_url, config.max_ppm, config.min_shared_peaks,
         config.min_cosine, 5)
-    # Compile suspects from the clustering data.
+    # Get the clustering data from the global analysis.
+    clusters_global = _generate_suspects_global(
+        config.global_mol_net_task_id, config.max_ppm, config.min_shared_peaks,
+        config.min_cosine)
+    # Merge the clustering data from both sources.
+    ids = pd.concat([clusters_individual[0], clusters_global[0]],
+                    ignore_index=True)
+    pairs = pd.concat([clusters_individual[1], clusters_global[1]],
+                      ignore_index=True)
+    clusters = pd.concat([clusters_individual[2], clusters_global[2]],
+                         ignore_index=True)
+
+    # Compile suspects from all of the clustering data.
     logger.info('Compile suspect pairs')
     suspects_unfiltered = _generate_suspects(ids, pairs, clusters)
     suspects_unfiltered.to_parquet(
@@ -110,6 +122,7 @@ def _generate_suspects_per_dataset(living_data_base_url: str, max_ppm: float,
     Parameters
     ----------
     living_data_base_url : str
+        The URL of the living data FTP location.
     max_ppm : float
         The maximum ppm deviation for identifications to be included.
     min_shared_peaks : int
@@ -243,6 +256,79 @@ def _download_cluster(msv_id: str, ftp_prefix: str, max_tries: int = 5) \
     return None, None, None
 
 
+def _generate_suspects_global(task_id: str, max_ppm: float,
+                              min_shared_peaks: int, min_cosine: float) \
+        -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Transform cluster information for the global molecular network built on top
+    of the living data analysis.
+
+    Parameters
+    ----------
+    task_id : str
+        The GNPS task identifier of the molecular networking job.
+
+    Returns
+    -------
+    Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
+        A tuple of the identifications, pairs, and cluster_info DataFrames.
+    """
+    identifications = (
+        pd.read_csv(
+            f'../../data/external/METABOLOMICS-SNETS-V2-{task_id[:8]}-'
+            f'view_all_annotations_DB-main.tsv',
+            sep='\t', usecols=['Compound_Name', 'Ion_Source', 'Instrument',
+                               'IonMode', 'Adduct', 'Precursor_MZ', 'INCHI',
+                               'SpectrumID', '#Scan#', 'MZErrorPPM',
+                               'SharedPeaks'])
+        .rename(columns={'Compound_Name': 'CompoundName',
+                         'Ion_Source': 'IonSource',
+                         'Precursor_MZ': 'LibraryPrecursorMass',
+                         'INCHI': 'InChI',
+                         'SpectrumID': 'LibraryUsi',
+                         '#Scan#': 'ClusterId',
+                         'MZErrorPPM': 'MzErrorPpm'}))
+    identifications['ClusterId'] = \
+        f'{task_id}:scan:' + identifications['ClusterId'].astype(str)
+    identifications['LibraryUsi'] = (
+            'mzspec:GNPS:GNPS-LIBRARY:accession:' +
+            identifications['LibraryUsi'])
+    pairs = (
+        pd.read_csv(
+            f'../../data/external/METABOLOMICS-SNETS-V2-{task_id[:8]}-'
+            f'view_network_pairs-main.tsv',
+            sep='\t', usecols=['Node1', 'Node2', 'Cos_Score'])
+        .rename(columns={'Node1': 'ClusterId1',
+                         'Node2': 'ClusterId2',
+                         'Cos_Score': 'Cosine'}))
+    pairs['ClusterId1'] = (f'{task_id}:scan:' +
+                           pairs['ClusterId1'].astype(str))
+    pairs['ClusterId2'] = (f'{task_id}:scan:' +
+                           pairs['ClusterId2'].astype(str))
+    cluster_info = (
+        pd.read_csv(
+            f'../../data/external/METABOLOMICS-SNETS-V2-{task_id[:8]}-'
+            f'view_raw_spectra-main.tsv',
+            sep='\t', usecols=['cluster index', 'sum(precursor intensity)',
+                               'parent mass'])
+        .rename(columns={
+            'cluster index': 'ClusterId',
+            'sum(precursor intensity)': 'PrecursorIntensity',
+            'parent mass': 'SuspectPrecursorMass'}))
+    cluster_info['SuspectUsi'] = (
+            f'mzspec:GNPS:TASK-{task_id}-spectra/specs_ms.mgf:scan:' +
+            cluster_info['ClusterId'].astype(str))
+    cluster_info['ClusterId'] = \
+        f'{task_id}:scan:' + cluster_info['ClusterId'].astype(str)
+    cluster_info = cluster_info[['ClusterId', 'PrecursorIntensity',
+                                 'SuspectPrecursorMass', 'SuspectUsi']]
+
+    identifications = _filter_ids(identifications, max_ppm, min_shared_peaks)
+    pairs = _filter_pairs(pairs, min_cosine)
+    cluster_info = _filter_clusters(cluster_info)
+    return identifications, pairs, cluster_info
+
+
 def _filter_ids(ids: pd.DataFrame, max_ppm: float, min_shared_peaks: int) \
         -> pd.DataFrame:
     """
@@ -280,8 +366,10 @@ def _filter_ids(ids: pd.DataFrame, max_ppm: float, min_shared_peaks: int) \
         'LC-Q-TOF/MS': 'qTof', 'Maxis HD qTOF': 'qTof', 'qToF': 'qTof',
         'Maxis II HD Q-TOF Bruker': 'qTof', 'Q-TOF': 'qTof', 'qTOF': 'qTof',
         # QQQ.
+        'BEqQ/magnetic and electric sectors with quadrupole': 'QQQ',
         'LC-APPI-QQ': 'QQQ', 'LC-ESI-QQ': 'QQQ', 'QqQ': 'QQQ',
-        'Quattro_QQQ:25eV': 'QQQ', 'QqQ/triple quadrupole': 'QQQ',
+        'Quattro_QQQ:10eV': 'QQQ', 'Quattro_QQQ:25eV': 'QQQ',
+        'QqQ/triple quadrupole': 'QQQ',
         # Orbitrap.
         'HCD': 'Orbitrap', 'HCD; Lumos': 'Orbitrap', 'HCD; Velos': 'Orbitrap',
         'Q-Exactive Plus': 'Orbitrap',
