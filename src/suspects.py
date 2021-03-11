@@ -554,17 +554,16 @@ def generate_suspects() -> None:
             ids.append(i)
             pairs.append(p)
             clusters.append(c)
-    ids = pd.concat(ids, ignore_index=True)
-    pairs = pd.concat(pairs, ignore_index=True)
-    clusters = pd.concat(clusters, ignore_index=True)
     # Compile suspects from the clustering data.
     logger.info('Compile suspect pairs')
-    ids = _filter_ids(ids, config.max_ppm, config.min_shared_peaks)
-    pairs = _filter_pairs(pairs, config.min_cosine)
-    clusters = _filter_clusters(clusters)
+    ids = _filter_ids(pd.concat(ids, ignore_index=True), config.max_ppm,
+                      config.min_shared_peaks)
+    pairs = _filter_pairs(pd.concat(pairs, ignore_index=True),
+                          config.min_cosine)
+    clusters = _filter_clusters(pd.concat(clusters, ignore_index=True))
     suspects_unfiltered = _generate_suspects(ids, pairs, clusters)
-    suspects_unfiltered.to_csv('../../data/interim/suspects_unfiltered.csv.xz',
-                               index=False)
+    suspects_unfiltered.to_parquet(
+        '../data/interim/suspects_unfiltered.parquet', index=False)
 
     # Ignore suspects without a mass shift.
     suspects_grouped = suspects_unfiltered[
@@ -574,8 +573,8 @@ def generate_suspects() -> None:
     suspects_grouped = _group_mass_shifts(
         suspects_grouped, mass_shift_annotations, config.interval_width,
         config.bin_width, config.peak_height, config.max_dist)
-    suspects_grouped.to_csv('../../data/interim/suspects_grouped.csv.xz',
-                            index=False)
+    suspects_grouped.to_parquet('../../data/interim/suspects_grouped.parquet',
+                                index=False)
     # Ignore ungrouped suspects.
     suspects_grouped = suspects_grouped.dropna(subset=['GroupDeltaMass'])
     logger.info('%d suspects with non-zero mass differences collected '
@@ -591,8 +590,8 @@ def generate_suspects() -> None:
         .sort_values('Adduct', key=_get_adduct_n_elements)
         .drop_duplicates(['CompoundName', 'SuspectUsi'])
         .sort_values(['CompoundName', 'Adduct', 'GroupDeltaMass']))
-    suspects_unique.to_csv('../../data/interim/suspects_unique.csv.xz',
-                           index=False)
+    suspects_unique.to_parquet('../../data/interim/suspects_unique.parquet',
+                               index=False)
     logger.info('%d unique suspects after duplicate removal and filtering',
                 len(suspects_unique))
 
