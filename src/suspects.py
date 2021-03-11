@@ -43,6 +43,113 @@ charges = {
     'Cat': 1}
 
 
+def generate_suspects() -> None:
+    """
+    Generate suspects from the GNPS living data results.
+
+    Suspect (unfiltered and filtered, unique) metadata is exported to csv files
+    in the data directory.
+
+    Settings for the suspect generation are taken from the config file.
+    """
+    # Expert-based mass shift annotations.
+    mass_shift_annotations = pd.read_csv(config.mass_shift_annotation_url)
+    mass_shift_annotations['mz delta'] = (mass_shift_annotations['mz delta']
+                                          .astype(float))
+    mass_shift_annotations['priority'] = (mass_shift_annotations['priority']
+                                          .astype(int))
+
+    # Get the clustering data per individual dataset.
+    ids, pairs, clusters = _generate_suspects_per_dataset(
+        config.living_data_base_url, config.max_ppm, config.min_shared_peaks,
+        config.min_cosine, 5)
+    # Compile suspects from the clustering data.
+    logger.info('Compile suspect pairs')
+    suspects_unfiltered = _generate_suspects(ids, pairs, clusters)
+    suspects_unfiltered.to_parquet(
+        '../data/interim/suspects_unfiltered.parquet', index=False)
+
+    # Ignore suspects without a mass shift.
+    suspects_grouped = suspects_unfiltered[
+        suspects_unfiltered['DeltaMass'].abs() > config.min_delta_mz].copy()
+    # Group and assign suspects by observed mass shift.
+    logger.info('Group suspects by mass shift and assign potential rationales')
+    suspects_grouped = _group_mass_shifts(
+        suspects_grouped, mass_shift_annotations, config.interval_width,
+        config.bin_width, config.peak_height, config.max_dist)
+    suspects_grouped.to_parquet('../../data/interim/suspects_grouped.parquet',
+                                index=False)
+    # Ignore ungrouped suspects.
+    suspects_grouped = suspects_grouped.dropna(subset=['GroupDeltaMass'])
+    logger.info('%d suspects with non-zero mass differences collected '
+                '(%d total)', len(suspects_grouped), len(suspects_unfiltered))
+
+    # 1. Only use the top suspect (by cosine score) per combination of library
+    #    spectrum and grouped mass shift.
+    # 2. Avoid repeated occurrences of the same suspect with different adducts.
+    suspects_unique = (
+        suspects_grouped
+        .sort_values('Cosine', ascending=False)
+        .drop_duplicates(['CompoundName', 'Adduct', 'GroupDeltaMass'])
+        .sort_values('Adduct', key=_get_adduct_n_elements)
+        .drop_duplicates(['CompoundName', 'SuspectUsi'])
+        .sort_values(['CompoundName', 'Adduct', 'GroupDeltaMass']))
+    suspects_unique.to_parquet('../../data/interim/suspects_unique.parquet',
+                               index=False)
+    logger.info('%d unique suspects after duplicate removal and filtering',
+                len(suspects_unique))
+
+
+def _generate_suspects_per_dataset(living_data_base_url: str, max_ppm: float,
+                                   min_shared_peaks: int, min_cosine: float,
+                                   n_jobs: int = None) \
+        -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Get all individual dataset cluster results from the GNPS living data.
+
+    Parameters
+    ----------
+    living_data_base_url : str
+    max_ppm : float
+        The maximum ppm deviation for identifications to be included.
+    min_shared_peaks : int
+        The minimum number of shared peaks for identifications to be included.
+    min_cosine : float
+        The minimum cosine used to retain high-quality pairs.
+    n_jobs : int
+        The maximum number of concurrently running FTP queries. Using too many
+        parallel requests can lead to a temporary server ban.
+
+    Returns
+    -------
+    Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
+        A tuple of the identifications, pairs, and cluster_info DataFrames for
+        all datasets included in the living data analysis.
+    """
+    ftp_prefix = f'ftp://massive.ucsd.edu/{living_data_base_url}'
+    # Get the MassIVE IDs for all datasets included in the living data.
+    ftp = ftplib.FTP('massive.ucsd.edu')
+    ftp.login()
+    ftp.cwd(f'{living_data_base_url}/CLUSTERINFO')
+    msv_ids = [filename[:filename.find('_')] for filename in ftp.nlst()]
+    # Get cluster information for each dataset.
+    logger.info('Retrieve cluster information for individual datasets')
+    ids, pairs, clusters = [], [], []
+    for i, p, c in joblib.Parallel(n_jobs=n_jobs)(
+            joblib.delayed(_download_cluster)(msv_id, ftp_prefix)
+            for msv_id in tqdm.tqdm(msv_ids, desc='Datasets processed',
+                                    unit='dataset')):
+        if i is not None and p is not None and c is not None:
+            ids.append(i)
+            pairs.append(p)
+            clusters.append(c)
+    ids = _filter_ids(pd.concat(ids, ignore_index=True), max_ppm,
+                      min_shared_peaks)
+    pairs = _filter_pairs(pd.concat(pairs, ignore_index=True), min_cosine)
+    clusters = _filter_clusters(pd.concat(clusters, ignore_index=True))
+    return ids, pairs, clusters
+
+
 def _download_cluster(msv_id: str, ftp_prefix: str, max_tries: int = 5) \
         -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame],
                  Optional[pd.DataFrame]]:
@@ -517,83 +624,6 @@ def _get_adduct_n_elements(adducts: pd.Series) -> pd.Series:
                 '[+-]', adduct[adduct.find('[') + 1:adduct.rfind(']')])])
             counts.append(n if n > 1 else np.inf)
     return pd.Series(counts)
-
-
-def generate_suspects() -> None:
-    """
-    Generate suspects from the GNPS living data results.
-
-    Suspect (unfiltered and filtered, unique) metadata is exported to csv files
-    in the data directory.
-
-    Settings for the suspect generation are taken from the config file.
-    """
-    # Expert-based mass shift annotations.
-    mass_shift_annotations = pd.read_csv(config.mass_shift_annotation_url)
-    mass_shift_annotations['mz delta'] = (mass_shift_annotations['mz delta']
-                                          .astype(float))
-    mass_shift_annotations['priority'] = (mass_shift_annotations['priority']
-                                          .astype(int))
-
-    # Get all GNPS living data cluster results.
-    ftp_prefix = f'ftp://massive.ucsd.edu/{config.living_data_base_url}'
-    # Get the MassIVE IDs for all datasets included in the living data.
-    ftp = ftplib.FTP('massive.ucsd.edu')
-    ftp.login()
-    ftp.cwd(f'{config.living_data_base_url}/CLUSTERINFO')
-    msv_ids = [filename[:filename.find('_')] for filename in ftp.nlst()]
-    # Generate the suspects.
-    logger.info('Retrieve cluster information')
-    ids_pairs_clusters = joblib.Parallel(n_jobs=5)(
-        joblib.delayed(_download_cluster)(msv_id, ftp_prefix)
-        for msv_id in tqdm.tqdm(msv_ids, desc='Datasets processed',
-                                unit='dataset'))
-    ids, pairs, clusters = [], [], []
-    for i, p, c in ids_pairs_clusters:
-        if i is not None and p is not None and c is not None:
-            ids.append(i)
-            pairs.append(p)
-            clusters.append(c)
-    # Compile suspects from the clustering data.
-    logger.info('Compile suspect pairs')
-    ids = _filter_ids(pd.concat(ids, ignore_index=True), config.max_ppm,
-                      config.min_shared_peaks)
-    pairs = _filter_pairs(pd.concat(pairs, ignore_index=True),
-                          config.min_cosine)
-    clusters = _filter_clusters(pd.concat(clusters, ignore_index=True))
-    suspects_unfiltered = _generate_suspects(ids, pairs, clusters)
-    suspects_unfiltered.to_parquet(
-        '../data/interim/suspects_unfiltered.parquet', index=False)
-
-    # Ignore suspects without a mass shift.
-    suspects_grouped = suspects_unfiltered[
-        suspects_unfiltered['DeltaMass'].abs() > config.min_delta_mz].copy()
-    # Group and assign suspects by observed mass shift.
-    logger.info('Group suspects by mass shift and assign potential rationales')
-    suspects_grouped = _group_mass_shifts(
-        suspects_grouped, mass_shift_annotations, config.interval_width,
-        config.bin_width, config.peak_height, config.max_dist)
-    suspects_grouped.to_parquet('../../data/interim/suspects_grouped.parquet',
-                                index=False)
-    # Ignore ungrouped suspects.
-    suspects_grouped = suspects_grouped.dropna(subset=['GroupDeltaMass'])
-    logger.info('%d suspects with non-zero mass differences collected '
-                '(%d total)', len(suspects_grouped), len(suspects_unfiltered))
-
-    # 1. Only use the top suspect (by cosine score) per combination of library
-    #    spectrum and grouped mass shift.
-    # 2. Avoid repeated occurrences of the same suspect with different adducts.
-    suspects_unique = (
-        suspects_grouped
-        .sort_values('Cosine', ascending=False)
-        .drop_duplicates(['CompoundName', 'Adduct', 'GroupDeltaMass'])
-        .sort_values('Adduct', key=_get_adduct_n_elements)
-        .drop_duplicates(['CompoundName', 'SuspectUsi'])
-        .sort_values(['CompoundName', 'Adduct', 'GroupDeltaMass']))
-    suspects_unique.to_parquet('../../data/interim/suspects_unique.parquet',
-                               index=False)
-    logger.info('%d unique suspects after duplicate removal and filtering',
-                len(suspects_unique))
 
 
 if __name__ == '__main__':
