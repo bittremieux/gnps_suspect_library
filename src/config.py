@@ -4,8 +4,9 @@ mass_shift_annotation_url = ('https://docs.google.com/spreadsheets/d/'
 # Living data analysis performed on 2020-11-18.
 living_data_base_url = 'MSV000084314/updates/2020-11-18_mwang87_d115210a/other'
 # Global living data molecular networking performed on 2019-10-21.
-# https://gnps.ucsd.edu/ProteoSAFe/status.jsp?task=d3c2d88e1c30402cb0d68b960b907a3d
-global_mol_net_task_id = 'd3c2d88e1c30402cb0d68b960b907a3d'
+# https://gnps.ucsd.edu/ProteoSAFe/status.jsp?task=4f69e11bfb544010b2c4225a255f17ba
+global_network_dir = '../../data/external/global_network'
+global_network_task_id = '4f69e11bfb544010b2c4225a255f17ba'
 
 # Criteria to form a suspect:
 #

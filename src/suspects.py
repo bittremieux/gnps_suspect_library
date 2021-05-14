@@ -65,8 +65,8 @@ def generate_suspects() -> None:
         config.min_cosine, 5)
     # Get the clustering data from the global analysis.
     clusters_global = _generate_suspects_global(
-        config.global_mol_net_task_id, config.max_ppm, config.min_shared_peaks,
-        config.min_cosine)
+        config.global_network_dir, config.global_network_task_id,
+        config.max_ppm, config.min_shared_peaks, config.min_cosine)
     # Merge the clustering data from both sources.
     ids = pd.concat([clusters_individual[0], clusters_global[0]],
                     ignore_index=True)
@@ -256,8 +256,9 @@ def _download_cluster(msv_id: str, ftp_prefix: str, max_tries: int = 5) \
     return None, None, None
 
 
-def _generate_suspects_global(task_id: str, max_ppm: float,
-                              min_shared_peaks: int, min_cosine: float) \
+def _generate_suspects_global(global_network_dir: str, task_id: str,
+                              max_ppm: float, min_shared_peaks: int,
+                              min_cosine: float) \
         -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Transform cluster information for the global molecular network built on top
@@ -265,22 +266,36 @@ def _generate_suspects_global(task_id: str, max_ppm: float,
 
     Parameters
     ----------
+    global_network_dir : str
+        The directory with the output of the molecular networking job.
     task_id : str
         The GNPS task identifier of the molecular networking job.
+    max_ppm : float
+        The maximum ppm deviation for identifications to be included.
+    min_shared_peaks : int
+        The minimum number of shared peaks for identifications to be included.
+    min_cosine : float
+        The minimum cosine used to retain high-quality pairs.
 
     Returns
     -------
     Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
         A tuple of the identifications, pairs, and cluster_info DataFrames.
     """
+    filename_specnets = os.path.join(
+        global_network_dir, 'result_specnets_DB', os.listdir(os.path.join(
+            global_network_dir, 'result_specnets_DB'))[0])
+    filename_networkedges = os.path.join(
+        global_network_dir, 'networkedges', os.listdir(os.path.join(
+            global_network_dir, 'networkedges'))[0])
+    filename_clusterinfosummary = os.path.join(
+        global_network_dir, 'clusterinfosummary', os.listdir(os.path.join(
+            global_network_dir, 'clusterinfosummary'))[0])
     identifications = (
-        pd.read_csv(
-            f'../../data/external/METABOLOMICS-SNETS-V2-{task_id[:8]}-'
-            f'view_all_annotations_DB-main.tsv',
-            sep='\t', usecols=['Compound_Name', 'Ion_Source', 'Instrument',
-                               'IonMode', 'Adduct', 'Precursor_MZ', 'INCHI',
-                               'SpectrumID', '#Scan#', 'MZErrorPPM',
-                               'SharedPeaks'])
+        pd.read_csv(filename_specnets, sep='\t', usecols=[
+            'Compound_Name', 'Ion_Source', 'Instrument', 'IonMode', 'Adduct',
+            'Precursor_MZ', 'INCHI', 'SpectrumID', '#Scan#', 'MZErrorPPM',
+            'SharedPeaks'])
         .rename(columns={'Compound_Name': 'CompoundName',
                          'Ion_Source': 'IonSource',
                          'Precursor_MZ': 'LibraryPrecursorMass',
@@ -289,37 +304,31 @@ def _generate_suspects_global(task_id: str, max_ppm: float,
                          '#Scan#': 'ClusterId',
                          'MZErrorPPM': 'MzErrorPpm'}))
     identifications['ClusterId'] = \
-        f'{task_id}:scan:' + identifications['ClusterId'].astype(str)
-    identifications['LibraryUsi'] = (
-            'mzspec:GNPS:GNPS-LIBRARY:accession:' +
-            identifications['LibraryUsi'])
-    pairs = (
-        pd.read_csv(
-            f'../../data/external/METABOLOMICS-SNETS-V2-{task_id[:8]}-'
-            f'view_network_pairs-main.tsv',
-            sep='\t', usecols=['Node1', 'Node2', 'Cos_Score'])
-        .rename(columns={'Node1': 'ClusterId1',
-                         'Node2': 'ClusterId2',
-                         'Cos_Score': 'Cosine'}))
-    pairs['ClusterId1'] = (f'{task_id}:scan:' +
-                           pairs['ClusterId1'].astype(str))
-    pairs['ClusterId2'] = (f'{task_id}:scan:' +
-                           pairs['ClusterId2'].astype(str))
+        'GLOBAL_NETWORK:scan:' + identifications['ClusterId'].astype(str)
+    identifications['LibraryUsi'] = \
+        'mzspec:GNPS:GNPS-LIBRARY:accession:' + identifications['LibraryUsi']
+    pairs = pd.read_csv(filename_networkedges, sep='\t',
+                        names=['ClusterId1', 'ClusterId2', 'Cosine'],
+                        usecols=[0, 1, 4])
+    pairs['ClusterId1'] = \
+        'GLOBAL_NETWORK:scan:' + pairs['ClusterId1'].astype(str)
+    pairs['ClusterId2'] = \
+        'GLOBAL_NETWORK:scan:' + pairs['ClusterId2'].astype(str)
     cluster_info = (
-        pd.read_csv(
-            f'../../data/external/METABOLOMICS-SNETS-V2-{task_id[:8]}-'
-            f'view_raw_spectra-main.tsv',
-            sep='\t', usecols=['cluster index', 'sum(precursor intensity)',
-                               'parent mass'])
+        pd.read_csv(filename_clusterinfosummary, sep='\t', usecols=[
+            'cluster index', 'sum(precursor intensity)', 'parent mass',
+            'number of spectra'])
         .rename(columns={
             'cluster index': 'ClusterId',
             'sum(precursor intensity)': 'PrecursorIntensity',
             'parent mass': 'SuspectPrecursorMass'}))
+    # Fix because cleaning up didn't work.
+    cluster_info = cluster_info[cluster_info['number of spectra'] >= 3]
     cluster_info['SuspectUsi'] = (
             f'mzspec:GNPS:TASK-{task_id}-spectra/specs_ms.mgf:scan:' +
             cluster_info['ClusterId'].astype(str))
     cluster_info['ClusterId'] = \
-        f'{task_id}:scan:' + cluster_info['ClusterId'].astype(str)
+        'GNPS_NETWORK:scan:' + cluster_info['ClusterId'].astype(str)
     cluster_info = cluster_info[['ClusterId', 'PrecursorIntensity',
                                  'SuspectPrecursorMass', 'SuspectUsi']]
 
