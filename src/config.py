@@ -1,3 +1,8 @@
+import os
+
+
+data_dir = '../../data'
+
 mass_shift_annotation_url = ('https://docs.google.com/spreadsheets/d/'
                              '1-xh2XpSqdsa4yU-ATpDRxmpZEH6ht982jCCATFOpkyM/'
                              'export?format=csv&gid=566878567')
@@ -5,7 +10,7 @@ mass_shift_annotation_url = ('https://docs.google.com/spreadsheets/d/'
 living_data_base_url = 'MSV000084314/updates/2020-11-18_mwang87_d115210a/other'
 # Global living data molecular networking performed on 2019-10-21.
 # https://gnps.ucsd.edu/ProteoSAFe/status.jsp?task=4f69e11bfb544010b2c4225a255f17ba
-global_network_dir = '../../data/external/global_network'
+global_network_dir = os.path.join(data_dir, 'external', 'global_network')
 global_network_task_id = '4f69e11bfb544010b2c4225a255f17ba'
 
 # Criteria to form a suspect:

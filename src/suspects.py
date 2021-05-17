@@ -78,8 +78,9 @@ def generate_suspects() -> None:
     # Compile suspects from all of the clustering data.
     logger.info('Compile suspect pairs')
     suspects_unfiltered = _generate_suspects(ids, pairs, clusters)
-    suspects_unfiltered.to_parquet(
-        '../data/interim/suspects_unfiltered.parquet', index=False)
+    suspects_unfiltered.to_parquet(os.path.join(config.data_dir, 'interim',
+                                                'suspects_unfiltered.parquet'),
+                                   index=False)
 
     # Ignore suspects without a mass shift.
     suspects_grouped = suspects_unfiltered[
@@ -89,7 +90,8 @@ def generate_suspects() -> None:
     suspects_grouped = _group_mass_shifts(
         suspects_grouped, mass_shift_annotations, config.interval_width,
         config.bin_width, config.peak_height, config.max_dist)
-    suspects_grouped.to_parquet('../../data/interim/suspects_grouped.parquet',
+    suspects_grouped.to_parquet(os.path.join(config.data_dir, 'interim',
+                                             'suspects_grouped.parquet'),
                                 index=False)
     # Ignore ungrouped suspects.
     suspects_grouped = suspects_grouped.dropna(subset=['GroupDeltaMass'])
@@ -106,7 +108,8 @@ def generate_suspects() -> None:
         .sort_values('Adduct', key=_get_adduct_n_elements)
         .drop_duplicates(['CompoundName', 'SuspectUsi'])
         .sort_values(['CompoundName', 'Adduct', 'GroupDeltaMass']))
-    suspects_unique.to_parquet('../../data/interim/suspects_unique.parquet',
+    suspects_unique.to_parquet(os.path.join(config.data_dir, 'interim',
+                                            'suspects_unique.parquet'),
                                index=False)
     logger.info('%d unique suspects after duplicate removal and filtering',
                 len(suspects_unique))
