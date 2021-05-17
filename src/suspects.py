@@ -331,7 +331,7 @@ def _generate_suspects_global(global_network_dir: str, task_id: str,
             f'mzspec:GNPS:TASK-{task_id}-spectra/specs_ms.mgf:scan:' +
             cluster_info['ClusterId'].astype(str))
     cluster_info['ClusterId'] = \
-        'GNPS_NETWORK:scan:' + cluster_info['ClusterId'].astype(str)
+        'GLOBAL_NETWORK:scan:' + cluster_info['ClusterId'].astype(str)
     cluster_info = cluster_info[['ClusterId', 'PrecursorIntensity',
                                  'SuspectPrecursorMass', 'SuspectUsi']]
 
