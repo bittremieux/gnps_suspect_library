@@ -10,6 +10,7 @@ from typing import Optional, Tuple
 import joblib
 import numpy as np
 import pandas as pd
+import pyteomics.mass.unimod as unimod
 import scipy.signal as ssignal
 import tqdm
 
@@ -52,12 +53,34 @@ def generate_suspects() -> None:
 
     Settings for the suspect generation are taken from the config file.
     """
+    # Unimod modifications.
+    mass_shift_annotations = []
+    for mod in unimod.Unimod().mods:
+        composition = []
+        if 'C' in mod.composition:
+            composition.append(f'{mod.composition["C"]}C')
+            del mod.composition['C']
+            if 'H' in mod.composition:
+                composition.append(f'{mod.composition["H"]}H')
+                del mod.composition['H']
+        for atom in sorted(mod.composition.keys()):
+            composition.append(f'{mod.composition[atom]}{atom}')
+        mass_shift_annotations.append(
+            (mod.monoisotopic_mass, ','.join(composition), mod.full_name, 5))
+    mass_shift_annotations = pd.DataFrame(
+        mass_shift_annotations,
+        columns=['mz delta', 'atomic difference', 'rationale', 'priority'])
     # Expert-based mass shift annotations.
-    mass_shift_annotations = pd.read_csv(config.mass_shift_annotation_url)
+    mass_shift_annotations = pd.concat(
+        [mass_shift_annotations,
+         pd.read_csv(config.mass_shift_annotation_url, usecols=[
+             'mz delta', 'atomic difference', 'rationale', 'priority'])],
+        ignore_index=True)
     mass_shift_annotations['mz delta'] = (mass_shift_annotations['mz delta']
                                           .astype(float))
     mass_shift_annotations['priority'] = (mass_shift_annotations['priority']
                                           .astype(int))
+    mass_shift_annotations = mass_shift_annotations.sort_values('mz delta')
 
     # Get the clustering data per individual dataset.
     clusters_individual = _generate_suspects_per_dataset(
@@ -678,8 +701,8 @@ def _group_mass_shifts(
             delta_mz_std = suspects.loc[mask_delta_mz, 'DeltaMass'].std()
             suspects.loc[mask_delta_mz, 'GroupDeltaMass'] = delta_mz
             putative_id = mass_shift_annotations[
-                (mass_shift_annotations['mz delta'].abs()
-                 - abs(delta_mz)).abs() < delta_mz_std].sort_values(
+                (mass_shift_annotations['mz delta'] - delta_mz).abs()
+                < delta_mz_std].sort_values(
                 ['priority', 'atomic difference', 'rationale'])
             if len(putative_id) == 0:
                 suspects.loc[mask_delta_mz, 'AtomicDifference'] = 'unspecified'
