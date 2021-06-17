@@ -54,7 +54,7 @@ def generate_suspects() -> None:
     Settings for the suspect generation are taken from the config file.
     """
     # Unimod modifications.
-    mass_shift_annotations = []
+    mass_shift_annotations_unimod = []
     for mod in unimod.Unimod().mods:
         composition = []
         if 'C' in mod.composition:
@@ -65,16 +65,25 @@ def generate_suspects() -> None:
                 del mod.composition['H']
         for atom in sorted(mod.composition.keys()):
             composition.append(f'{mod.composition[atom]}{atom}')
-        mass_shift_annotations.append(
+        mass_shift_annotations_unimod.append(
             (mod.monoisotopic_mass, ','.join(composition), mod.full_name, 5))
-    mass_shift_annotations = pd.DataFrame(
-        mass_shift_annotations,
+    mass_shift_annotations_unimod = pd.DataFrame(
+        mass_shift_annotations_unimod,
         columns=['mz delta', 'atomic difference', 'rationale', 'priority'])
     # Expert-based mass shift annotations.
+    mass_shift_annotations_gnps = pd.read_csv(
+        config.mass_shift_annotation_url, usecols=[
+            'mz delta', 'atomic difference', 'rationale', 'priority'])
+    atomic_differences = mass_shift_annotations_gnps[
+        (mass_shift_annotations_gnps['atomic difference'].notnull()) &
+        (mass_shift_annotations_gnps['rationale'].isnull())].copy()
+    atomic_differences['mz delta'] *= -1
+    atomic_differences['atomic difference'] = [
+        ','.join([f'-{a}' for a in row.split(',')])
+        for row in atomic_differences['atomic difference']]
     mass_shift_annotations = pd.concat(
-        [mass_shift_annotations,
-         pd.read_csv(config.mass_shift_annotation_url, usecols=[
-             'mz delta', 'atomic difference', 'rationale', 'priority'])],
+        [mass_shift_annotations_unimod, mass_shift_annotations_gnps,
+         atomic_differences],
         ignore_index=True)
     mass_shift_annotations['mz delta'] = (mass_shift_annotations['mz delta']
                                           .astype(float))
