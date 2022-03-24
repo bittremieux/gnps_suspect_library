@@ -74,16 +74,23 @@ def generate_suspects() -> None:
     mass_shift_annotations_gnps = pd.read_csv(
         config.mass_shift_annotation_url, usecols=[
             'mz delta', 'atomic difference', 'rationale', 'priority'])
-    atomic_differences = mass_shift_annotations_gnps[
-        (mass_shift_annotations_gnps['atomic difference'].notnull()) &
-        (mass_shift_annotations_gnps['rationale'].isnull())].copy()
-    atomic_differences['mz delta'] *= -1
-    atomic_differences['atomic difference'] = [
-        ','.join([f'-{a}' for a in row.split(',')])
-        for row in atomic_differences['atomic difference']]
     mass_shift_annotations = pd.concat(
-        [mass_shift_annotations_unimod, mass_shift_annotations_gnps,
-         atomic_differences],
+        [mass_shift_annotations_unimod, mass_shift_annotations_gnps],
+        ignore_index=True)
+    # Reversed modifications.
+    mass_shift_annotations_rev = mass_shift_annotations.copy()
+    mass_shift_annotations_rev['mz delta'] *= -1
+    mass_shift_annotations_rev['rationale'] = \
+        mass_shift_annotations_rev['rationale'].apply(
+            lambda row: 'unspecified' if row == 'unspecified'
+            else f'{row} (reverse)')
+    mass_shift_annotations_rev['atomic difference'] = \
+        mass_shift_annotations_rev['atomic difference'].apply(
+            lambda row: ','.join([f'-{a}' if a[0] != '-' else a[1:]
+                                  for a in str(row).split(',')])
+            if row is not None else None)
+    mass_shift_annotations = pd.concat(
+        [mass_shift_annotations, mass_shift_annotations_rev],
         ignore_index=True)
     mass_shift_annotations['mz delta'] = (mass_shift_annotations['mz delta']
                                           .astype(float))
@@ -717,10 +724,20 @@ def _group_mass_shifts(
                 suspects.loc[mask_delta_mz, 'AtomicDifference'] = 'unspecified'
                 suspects.loc[mask_delta_mz, 'Rationale'] = 'unspecified'
             else:
+                putative_id['atomic difference'] = \
+                    putative_id['atomic difference'].fillna('unspecified')
+                putative_id['rationale'] = \
+                        putative_id['rationale'].fillna('unspecified')
+                # Only use reverse explanations if no other explanations match.
+                n_reversed = sum([rationale.endswith('(reverse)')
+                                  for rationale in putative_id['rationale']])
+                if n_reversed < len(putative_id):
+                    putative_id = putative_id[
+                        ~putative_id['rationale'].str.endswith('(reverse)')]
                 suspects.loc[mask_delta_mz, 'AtomicDifference'] = '|'.join(
-                    putative_id['atomic difference'].fillna('unspecified'))
+                    putative_id['atomic difference'])
                 suspects.loc[mask_delta_mz, 'Rationale'] = '|'.join(
-                    putative_id['rationale'].fillna('unspecified'))
+                    putative_id['rationale'])
 
     suspects['DeltaMass'] = suspects['DeltaMass'].round(3)
     suspects['GroupDeltaMass'] = suspects['GroupDeltaMass'].round(3)
