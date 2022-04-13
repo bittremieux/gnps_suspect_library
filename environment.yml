@@ -1,0 +1,23 @@
+name: suspect_library
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - joblib
+  - jupyter
+  - matplotlib
+  - networkx
+  - numpy
+  - pandas
+  - pyarrow
+  - pyteomics
+  - python=3.8
+  - requests
+  - scipy
+  - seaborn
+  - spectrum_utils
+  - sqlalchemy=1.3
+  - statsmodels
+  - tqdm
+prefix: ~/.conda/envs/suspect_library
