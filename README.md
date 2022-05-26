@@ -14,7 +14,8 @@ All code is available as open-source under the BSD license.
 
 If you use the nearest neighbor suspect spectral library in your work, please cite the following publication:
 
-- _Preprint link pending._
+- Bittremieux, W. _et al._ Open access repository-scale propagated nearest neighbor suspect spectral library for untargeted metabolomics. _bioRxiv_ (2022) doi:[10.1101/2022.05.15.490691](https://doi.org/10.1101/2022.05.15.490691).
+
 
 Contact
 -------
