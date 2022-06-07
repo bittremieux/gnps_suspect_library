@@ -16,6 +16,28 @@ If you use the nearest neighbor suspect spectral library in your work, please ci
 
 - Bittremieux, W. _et al._ Open access repository-scale propagated nearest neighbor suspect spectral library for untargeted metabolomics. _bioRxiv_ (2022) doi:[10.1101/2022.05.15.490691](https://doi.org/10.1101/2022.05.15.490691).
 
+Nearest neighbor suspect spectral library generation
+----------------------------------------------------
+
+Generating the nearest neighbor suspect spectral library requires Python 3.8. You can create a suitable code environment and install all dependencies using conda:
+
+```
+conda env create -f https://raw.githubusercontent.com/bittremieux/gnps_suspect_library/master/environment.yml && conda activate suspect_library
+```
+
+See the `environment.yml` file for full details on the software dependencies.
+
+You can generate the nearest neighbor suspect spectral library from the GNPS living data analysis results by cloning the repository and running the main Python script:
+
+```
+git clone https://github.com/bittremieux/gnps_suspect_library.git && cd gnps_suspect_library/src
+python3 suspects.py
+```
+
+This will create Parquet files that include tabular information and provenance for all the suspect MS/MS spectra. Compiling an MS/MS spectral library MGF file from the Parquet metadata file can be done using the `export_mgf.ipynb` Jupyter notebook in the `notebooks` directory.
+
+The Jupyter notebooks in the `notebooks` directory can also be used to fully recreate all analyses reported in the manuscript.
+
 
 Contact
 -------
