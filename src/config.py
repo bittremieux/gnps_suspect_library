@@ -1,7 +1,7 @@
 import os
 
 
-data_dir = "../../data"
+data_dir = os.path.realpath(os.path.join("..", "..", "data"))
 
 mass_shift_annotation_url = (
     "https://docs.google.com/spreadsheets/d/"
