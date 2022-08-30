@@ -103,6 +103,12 @@ def generate_suspects() -> None:
 
     Settings for the suspect generation are taken from the config file.
     """
+    task_id = re.match(
+        r"MSV000084314/updates/\d{4}-\d{2}-\d{2}_.+_([a-z0-9]{8})/other",
+        config.living_data_base_url,
+    ).group(1)
+    suspects_dir = os.path.join(config.data_dir, "interim")
+
     # Get the clustering data per individual dataset.
     clusters_individual = _generate_suspects_per_dataset(
         config.living_data_base_url,
@@ -130,22 +136,13 @@ def generate_suspects() -> None:
         [clusters_individual[2], clusters_global[2]], ignore_index=True
     )
 
-    task_id = re.match(
-        r"MSV000084314/updates/\d{4}-\d{2}-\d{2}_.+_([a-z0-9]{8})/other",
-        config.living_data_base_url,
-    ).group(1)
-    # Compile suspects from all of the clustering data.
-    logger.info("Compile suspect pairs")
+    # Generate suspects from all of the clustering data.
+    logger.info("Generate suspect pairs")
     suspects_unfiltered = _generate_suspects(ids, pairs, clusters)
     suspects_unfiltered.to_parquet(
-        os.path.join(
-            config.data_dir,
-            "interim",
-            f"suspects_{task_id}_unfiltered.parquet",
-        ),
+        os.path.join(suspects_dir, f"suspects_{task_id}_unfiltered.parquet"),
         index=False,
     )
-
     # Ignore suspects without a mass shift.
     suspects_grouped = suspects_unfiltered[
         suspects_unfiltered["DeltaMass"].abs() > config.min_delta_mz
@@ -160,16 +157,14 @@ def generate_suspects() -> None:
         config.peak_height,
         config.max_dist,
     )
-    suspects_grouped.to_parquet(
-        os.path.join(
-            config.data_dir, "interim", f"suspects_{task_id}_grouped.parquet"
-        ),
-        index=False,
-    )
     # Ignore ungrouped suspects.
     suspects_grouped = suspects_grouped.dropna(subset=["GroupDeltaMass"])
+    suspects_grouped.to_parquet(
+        os.path.join(suspects_dir, f"suspects_{task_id}_grouped.parquet"),
+        index=False,
+    )
     logger.info(
-        "%d suspects with non-zero mass differences collected " "(%d total)",
+        "%d suspects with non-zero mass differences collected (%d total)",
         len(suspects_grouped),
         len(suspects_unfiltered),
     )
@@ -185,9 +180,7 @@ def generate_suspects() -> None:
         .sort_values(["CompoundName", "Adduct", "GroupDeltaMass"])
     )
     suspects_unique.to_parquet(
-        os.path.join(
-            config.data_dir, "interim", f"suspects_{task_id}_unique.parquet"
-        ),
+        os.path.join(suspects_dir, f"suspects_{task_id}_unique.parquet"),
         index=False,
     )
     logger.info(
