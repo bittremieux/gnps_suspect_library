@@ -182,12 +182,16 @@ def generate_suspects() -> None:
         [clusters_individual[2], clusters_global[2]], ignore_index=True
     )
 
+    task_id = re.match(
+        r"MSV000084314/updates/\d{4}-\d{2}-\d{2}_.+_([a-z0-9]{8})/other",
+        config.living_data_base_url,
+    ).group(1)
     # Compile suspects from all of the clustering data.
     logger.info("Compile suspect pairs")
     suspects_unfiltered = _generate_suspects(ids, pairs, clusters)
     suspects_unfiltered.to_parquet(
         os.path.join(
-            config.data_dir, "interim", "suspects_unfiltered.parquet"
+            config.data_dir, "interim", f"suspects_{task_id}_unfiltered.parquet"
         ),
         index=False,
     )
@@ -207,7 +211,9 @@ def generate_suspects() -> None:
         config.max_dist,
     )
     suspects_grouped.to_parquet(
-        os.path.join(config.data_dir, "interim", "suspects_grouped.parquet"),
+        os.path.join(
+            config.data_dir, "interim", f"suspects_{task_id}_grouped.parquet"
+        ),
         index=False,
     )
     # Ignore ungrouped suspects.
@@ -229,7 +235,9 @@ def generate_suspects() -> None:
         .sort_values(["CompoundName", "Adduct", "GroupDeltaMass"])
     )
     suspects_unique.to_parquet(
-        os.path.join(config.data_dir, "interim", "suspects_unique.parquet"),
+        os.path.join(
+            config.data_dir, "interim", f"suspects_{task_id}_unique.parquet"
+        ),
         index=False,
     )
     logger.info(
