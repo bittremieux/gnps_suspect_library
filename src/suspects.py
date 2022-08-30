@@ -103,58 +103,6 @@ def generate_suspects() -> None:
 
     Settings for the suspect generation are taken from the config file.
     """
-    # Unimod modifications.
-    mass_shift_annotations_unimod = []
-    for mod in unimod.Unimod().mods:
-        composition = []
-        if "C" in mod.composition:
-            composition.append(f"{mod.composition['C']}C")
-            del mod.composition["C"]
-            if "H" in mod.composition:
-                composition.append(f"{mod.composition['H']}H")
-                del mod.composition["H"]
-        for atom in sorted(mod.composition.keys()):
-            composition.append(f"{mod.composition[atom]}{atom}")
-        mass_shift_annotations_unimod.append(
-            (mod.monoisotopic_mass, ",".join(composition), mod.full_name, 5)
-        )
-    mass_shift_annotations_unimod = pd.DataFrame(
-        mass_shift_annotations_unimod,
-        columns=["mz delta", "atomic difference", "rationale", "priority"],
-    )
-    # Expert-based mass shift annotations.
-    mass_shift_annotations_gnps = pd.read_csv(
-        config.mass_shift_annotation_url,
-        usecols=["mz delta", "atomic difference", "rationale", "priority"],
-    )
-    mass_shift_annotations = pd.concat(
-        [mass_shift_annotations_unimod, mass_shift_annotations_gnps],
-        ignore_index=True,
-    )
-    # Reversed modifications.
-    mass_shift_annotations_rev = mass_shift_annotations.copy()
-    mass_shift_annotations_rev["mz delta"] *= -1
-    rev_rationale = mass_shift_annotations_rev["rationale"].apply(
-        lambda row: "unspecified"
-        if row == "unspecified"
-        else f"{row} (reverse)"
-    )
-    mass_shift_annotations_rev["rationale"] = rev_rationale
-    rev_atom = mass_shift_annotations_rev["atomic difference"].apply(
-        lambda row: ",".join(
-            [f"-{a}" if a[0] != "-" else a[1:] for a in str(row).split(",")]
-        )
-        if row is not None
-        else None
-    )
-    mass_shift_annotations_rev["atomic difference"] = rev_atom
-    mass_shift_annotations = pd.concat(
-        [mass_shift_annotations, mass_shift_annotations_rev], ignore_index=True
-    )
-    for col, t in (("mz delta", float), ("priority", int)):
-        mass_shift_annotations[col] = mass_shift_annotations[col].astype(t)
-    mass_shift_annotations = mass_shift_annotations.sort_values("mz delta")
-
     # Get the clustering data per individual dataset.
     clusters_individual = _generate_suspects_per_dataset(
         config.living_data_base_url,
@@ -191,7 +139,9 @@ def generate_suspects() -> None:
     suspects_unfiltered = _generate_suspects(ids, pairs, clusters)
     suspects_unfiltered.to_parquet(
         os.path.join(
-            config.data_dir, "interim", f"suspects_{task_id}_unfiltered.parquet"
+            config.data_dir,
+            "interim",
+            f"suspects_{task_id}_unfiltered.parquet",
         ),
         index=False,
     )
@@ -204,7 +154,7 @@ def generate_suspects() -> None:
     logger.info("Group suspects by mass shift and assign potential rationales")
     suspects_grouped = _group_mass_shifts(
         suspects_grouped,
-        mass_shift_annotations,
+        _get_mass_shift_annotations(config.mass_shift_annotation_url),
         config.interval_width,
         config.bin_width,
         config.peak_height,
@@ -879,6 +829,89 @@ def _generate_suspects(
     suspects["AtomicDifference"] = np.nan
     suspects["Rationale"] = np.nan
     return suspects
+
+
+def _get_mass_shift_annotations(
+    extra_annotations: Optional[str] = None,
+) -> pd.DataFrame:
+    """
+    Get explanations for delta masses from known molecular modifications.
+
+    Modifications are sourced from Unimod and (optionally) an additional sheet.
+    All modifications are considered both as additions (positive delta mass) and
+    losses (negative delta mass).
+
+    Parameters
+    ----------
+    extra_annotations : Optional[str]
+        Optional URL to an additional delta mass annotations sheet.
+
+    Returns
+    -------
+    pd.DataFrame
+        A dataframe with as columns:
+            - "mz delta": The mass difference in m/z.
+            - "atomic difference": The atomic composition of the modification.
+            - "rationale": A description of the modification.
+            - "priority": Numerical priority to sort modifications with
+                          (near-)identical delta masses.
+    """
+    # Unimod modifications.
+    mass_shift_annotations = []
+    for mod in unimod.Unimod().mods:
+        composition = []
+        if "C" in mod.composition:
+            composition.append(f"{mod.composition['C']}C")
+            del mod.composition["C"]
+            if "H" in mod.composition:
+                composition.append(f"{mod.composition['H']}H")
+                del mod.composition["H"]
+        for atom in sorted(mod.composition.keys()):
+            composition.append(f"{mod.composition[atom]}{atom}")
+        mass_shift_annotations.append(
+            (mod.monoisotopic_mass, composition, mod.full_name, 5)
+        )
+    mass_shift_annotations = pd.DataFrame(
+        mass_shift_annotations,
+        columns=["mz delta", "atomic difference", "rationale", "priority"],
+    )
+    if extra_annotations is not None:
+        mass_shift_annotations2 = pd.read_csv(
+            extra_annotations,
+            usecols=["mz delta", "atomic difference", "rationale", "priority"],
+        )
+        mass_shift_annotations2["atomic difference"] = mass_shift_annotations2[
+            "atomic difference"
+        ].str.split(",")
+        mass_shift_annotations = pd.concat(
+            [mass_shift_annotations, mass_shift_annotations2],
+            ignore_index=True,
+        )
+    # Reversed modifications.
+    mass_shift_annotations_rev = mass_shift_annotations.copy()
+    mass_shift_annotations_rev["mz delta"] *= -1
+    mass_shift_annotations_rev["rationale"] = (
+        mass_shift_annotations_rev["rationale"] + " (reverse)"
+    ).str.replace("unspecified (reverse)", "unspecified", regex=False)
+    mass_shift_annotations_rev["atomic difference"] = (
+        mass_shift_annotations_rev["atomic difference"]
+        .fillna("")
+        .apply(list)
+        .apply(
+            lambda row: [a[1:] if a.startswith("-") else f"-{a}" for a in row]
+        )
+    )
+    mass_shift_annotations = pd.concat(
+        [mass_shift_annotations, mass_shift_annotations_rev], ignore_index=True
+    )
+    mass_shift_annotations["atomic difference"] = mass_shift_annotations[
+        "atomic difference"
+    ].str.join(",")
+    for col, t in (("mz delta", float), ("priority", int)):
+        mass_shift_annotations[col] = mass_shift_annotations[col].astype(t)
+    return mass_shift_annotations.sort_values("mz delta").reset_index(
+        drop=True
+    )
 
 
 def _group_mass_shifts(
