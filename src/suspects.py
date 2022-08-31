@@ -53,40 +53,7 @@ def generate_suspects() -> None:
     )
     # Merge the clustering data from both sources.
     if config.filename_ids is not None:
-        ids = pd.read_csv(
-            config.filename_ids,
-            sep="\t",
-            usecols=[
-                "#Scan#",
-                "Compound_Name",
-                "Ion_Source",
-                "LibMZ",
-                "INCHI",
-                "SpectrumFile",
-                "SpectrumID",
-                "MZErrorPPM",
-            ],
-        )
-        ids = ids.rename(
-            columns={
-                "Compound_Name": "CompoundName",
-                "Ion_Source": "IonSource",
-                "LibMZ": "LibraryPrecursorMass",
-                "INCHI": "InChI",
-                "MZErrorPPM": "MzErrorPpm",
-            }
-        )
-        ids["LibraryUsi"] = (
-            "mzspec:GNPS:GNPS-LIBRARY:accession:" + ids["SpectrumID"]
-        )
-        ids["ClusterId"] = (
-            ids["SpectrumFile"].apply(
-                lambda filename: os.path.splitext(filename)[0]
-            )
-            + ":scan:"
-            + ids["#Scan#"].astype(str)
-        )
-        ids = ids.drop(columns=["#Scan#", "SpectrumFile", "SpectrumID"])
+        ids = _read_ids(config.filename_ids)
     else:
         ids = pd.concat(
             [clusters_individual[0], clusters_global[0]], ignore_index=True
@@ -303,14 +270,7 @@ def _download_cluster(
                 + ":scan:"
                 + clust["ScanNumber"].astype(str)
             )
-            clust = clust[
-                [
-                    "ClusterId",
-                    "PrecursorIntensity",
-                    "SuspectPrecursorMass",
-                    "SuspectUsi",
-                ]
-            ]
+            clust = clust.drop(columns=["Original_Path", "ScanNumber"])
 
             return ids, pairs, clust
         except ValueError as e:
@@ -435,15 +395,58 @@ def _generate_suspects_global(
     clust["ClusterId"] = "GLOBAL_NETWORK:scan:" + clust["ClusterId"].astype(
         str
     )
-    clust = clust[
-        [
-            "ClusterId",
-            "PrecursorIntensity",
-            "SuspectPrecursorMass",
-            "SuspectUsi",
-        ]
-    ]
+    clust = clust.drop(columns="number of spectra")
     return ids, pairs, clust
+
+
+def _read_ids(filename: str) -> pd.DataFrame:
+    """
+    Read MS/MS spectrum annotations from a GNPS library searching results file
+    to be used as the identifications.
+
+    Parameters
+    ----------
+    filename : str
+        The GNPS library searching file name.
+
+    Returns
+    -------
+    pd.DataFrame
+        The identifications DataFrame.
+    """
+    ids = pd.read_csv(
+        filename,
+        sep="\t",
+        usecols=[
+            "#Scan#",
+            "Compound_Name",
+            "Ion_Source",
+            "LibMZ",
+            "INCHI",
+            "SpectrumFile",
+            "SpectrumID",
+            "MZErrorPPM",
+        ],
+    )
+    ids = ids.rename(
+        columns={
+            "Compound_Name": "CompoundName",
+            "Ion_Source": "IonSource",
+            "LibMZ": "LibraryPrecursorMass",
+            "INCHI": "InChI",
+            "MZErrorPPM": "MzErrorPpm",
+        }
+    )
+    ids["LibraryUsi"] = (
+        "mzspec:GNPS:GNPS-LIBRARY:accession:" + ids["SpectrumID"]
+    )
+    ids["ClusterId"] = (
+        ids["SpectrumFile"].apply(lambda fn: os.path.splitext(fn)[0])
+        + ":scan:"
+        + ids["#Scan#"].astype(str)
+    )
+    ids = ids.drop(columns=["#Scan#", "SpectrumFile", "SpectrumID"])
+    return ids
 
 
 def _filter_ids(
