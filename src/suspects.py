@@ -52,12 +52,14 @@ def generate_suspects() -> None:
         config.global_network_dir, config.global_network_task_id
     )
     # Merge the clustering data from both sources.
+    ids = pd.concat(
+        [clusters_individual[0], clusters_global[0]], ignore_index=True
+    )
     if config.filename_ids is not None:
-        ids = _read_ids(config.filename_ids)
+        ids = pd.concat([ids, _read_ids(config.filename_ids)])
+        library_usis_to_include = _read_ids(config.filename_ids)["LibraryUsi"]
     else:
-        ids = pd.concat(
-            [clusters_individual[0], clusters_global[0]], ignore_index=True
-        )
+        library_usis_to_include = None
     pairs = pd.concat(
         [clusters_individual[1], clusters_global[1]], ignore_index=True
     )
@@ -92,6 +94,11 @@ def generate_suspects() -> None:
     )
     # Ignore ungrouped suspects.
     suspects_grouped = suspects_grouped.dropna(subset=["GroupDeltaMass"])
+    # (Optionally) filter by the supplementary identifications.
+    if library_usis_to_include is not None:
+        suspects_grouped = suspects_grouped[
+            suspects_grouped["LibraryUsi"].isin(library_usis_to_include)
+        ]
     suspects_grouped.to_parquet(
         os.path.join(suspects_dir, f"suspects_{task_id}_grouped.parquet"),
         index=False,
