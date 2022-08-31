@@ -17,81 +17,7 @@ import tqdm
 import config
 
 
-logger = logging.getLogger("suspect_list")
-
-formulas = {
-    "AC": "CH3COO",
-    "Ac": "CH3COO",
-    "ACN": "C2H3N",
-    "AcN": "C2H3N",
-    "C2H3O2": "CH3COO",
-    "C2H3OO": "CH3COO",
-    "EtOH": "C2H6O",
-    "FA": "CHOO",
-    "Fa": "CHOO",
-    "Formate": "CHOO",
-    "formate": "CHOO",
-    "H3C2OO": "CH3COO",
-    "HAc": "CH3COOH",
-    "HCO2": "CHOO",
-    "HCOO": "CHOO",
-    "HFA": "CHOOH",
-    "MeOH": "CH4O",
-    "OAc": "CH3COO",
-    "Oac": "CH3COO",
-    "OFA": "CHOO",
-    "OFa": "CHOO",
-    "Ofa": "CHOO",
-    "TFA": "CF3COOH",
-}
-
-charges = {
-    # Positive, singly charged.
-    "H": 1,
-    "K": 1,
-    "Li": 1,
-    "Na": 1,
-    "NH4": 1,
-    # Positive, doubly charged.
-    "Ca": 2,
-    "Fe": 2,
-    "Mg": 2,
-    # Negative, singly charged.
-    "AC": -1,
-    "Ac": -1,
-    "Br": -1,
-    "C2H3O2": -1,
-    "C2H3OO": -1,
-    "CH3COO": -1,
-    "CHO2": -1,
-    "CHOO": -1,
-    "Cl": -1,
-    "FA": -1,
-    "Fa": -1,
-    "Formate": -1,
-    "formate": -1,
-    "H3C2OO": -1,
-    "HCO2": -1,
-    "HCOO": -1,
-    "I": -1,
-    "OAc": -1,
-    "Oac": -1,
-    "OFA": -1,
-    "OFa": -1,
-    "Ofa": -1,
-    "OH": -1,
-    # Neutral.
-    "ACN": 0,
-    "AcN": 0,
-    "EtOH": 0,
-    "H2O": 0,
-    "HFA": 0,
-    "i": 0,
-    "MeOH": 0,
-    "TFA": 0,
-    # Misceallaneous.
-    "Cat": 1,
-}
+logger = logging.getLogger("suspect_library")
 
 
 def generate_suspects() -> None:
@@ -680,12 +606,12 @@ def _clean_adduct(adduct: str) -> str:
     if charge_sign is None:
         charge = sum(
             [
-                count * charges.get(adduct, 0)
+                count * config.charges.get(adduct, 0)
                 for count, adduct in positive_parts
             ]
         ) + sum(
             [
-                count * -abs(charges.get(adduct, 0))
+                count * -abs(config.charges.get(adduct, 0))
                 for count, adduct in negative_parts
             ]
         )
@@ -720,7 +646,7 @@ def _get_adduct_count(adduct: str) -> Tuple[int, str]:
     """
     count, adduct = re.match(r"^(\d*)([A-Z]?.*)$", adduct).groups()
     count = int(count) if count else 1
-    adduct = formulas.get(adduct, adduct)
+    adduct = config.formulas.get(adduct, adduct)
     wrong_order = re.match(r"^([A-Z][a-z]*)(\d*)$", adduct)
     # Handle multimers: "M2" -> "2M".
     if wrong_order is not None:

@@ -46,3 +46,78 @@ max_dist = 0.01
 # Suspect filtering:
 #
 # - Suspects whose delta m/z occurs less than 10 times are discarded.
+
+# Formula and charge mapping for data cleaning and harmonization.
+formulas = {
+    "AC": "CH3COO",
+    "Ac": "CH3COO",
+    "ACN": "C2H3N",
+    "AcN": "C2H3N",
+    "C2H3O2": "CH3COO",
+    "C2H3OO": "CH3COO",
+    "EtOH": "C2H6O",
+    "FA": "CHOO",
+    "Fa": "CHOO",
+    "Formate": "CHOO",
+    "formate": "CHOO",
+    "H3C2OO": "CH3COO",
+    "HAc": "CH3COOH",
+    "HCO2": "CHOO",
+    "HCOO": "CHOO",
+    "HFA": "CHOOH",
+    "MeOH": "CH4O",
+    "OAc": "CH3COO",
+    "Oac": "CH3COO",
+    "OFA": "CHOO",
+    "OFa": "CHOO",
+    "Ofa": "CHOO",
+    "TFA": "CF3COOH",
+}
+
+charges = {
+    # Positive, singly charged.
+    "H": 1,
+    "K": 1,
+    "Li": 1,
+    "Na": 1,
+    "NH4": 1,
+    # Positive, doubly charged.
+    "Ca": 2,
+    "Fe": 2,
+    "Mg": 2,
+    # Negative, singly charged.
+    "AC": -1,
+    "Ac": -1,
+    "Br": -1,
+    "C2H3O2": -1,
+    "C2H3OO": -1,
+    "CH3COO": -1,
+    "CHO2": -1,
+    "CHOO": -1,
+    "Cl": -1,
+    "FA": -1,
+    "Fa": -1,
+    "Formate": -1,
+    "formate": -1,
+    "H3C2OO": -1,
+    "HCO2": -1,
+    "HCOO": -1,
+    "I": -1,
+    "OAc": -1,
+    "Oac": -1,
+    "OFA": -1,
+    "OFa": -1,
+    "Ofa": -1,
+    "OH": -1,
+    # Neutral.
+    "ACN": 0,
+    "AcN": 0,
+    "EtOH": 0,
+    "H2O": 0,
+    "HFA": 0,
+    "i": 0,
+    "MeOH": 0,
+    "TFA": 0,
+    # Misceallaneous.
+    "Cat": 1,
+}
