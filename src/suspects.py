@@ -103,38 +103,78 @@ def generate_suspects() -> None:
 
     Settings for the suspect generation are taken from the config file.
     """
-    task_id = re.match(
-        r"MSV000084314/updates/\d{4}-\d{2}-\d{2}_.+_([a-z0-9]{8})/other",
-        config.living_data_base_url,
-    ).group(1)
+    if config.filename_ids is not None:
+        task_id = re.match(
+            r"MOLECULAR-LIBRARYSEARCH-V2-([a-z0-9]{8})-"
+            r"view_all_annotations_DB-main.tsv",
+            "MOLECULAR-LIBRARYSEARCH-V2-8b9bb7c1-"
+            "view_all_annotations_DB-main.tsv",
+        ).group(1)
+    else:
+        task_id = re.match(
+            r"MSV000084314/updates/\d{4}-\d{2}-\d{2}_.+_([a-z0-9]{8})/other",
+            config.living_data_base_url,
+        ).group(1)
     suspects_dir = os.path.join(config.data_dir, "interim")
 
     # Get the clustering data per individual dataset.
     clusters_individual = _generate_suspects_per_dataset(
-        config.living_data_base_url,
-        config.max_ppm,
-        config.min_shared_peaks,
-        config.min_cosine,
-        5,
+        config.living_data_base_url, 5
     )
     # Get the clustering data from the global analysis.
     clusters_global = _generate_suspects_global(
-        config.global_network_dir,
-        config.global_network_task_id,
-        config.max_ppm,
-        config.min_shared_peaks,
-        config.min_cosine,
+        config.global_network_dir, config.global_network_task_id
     )
     # Merge the clustering data from both sources.
-    ids = pd.concat(
-        [clusters_individual[0], clusters_global[0]], ignore_index=True
-    )
+    if config.filename_ids is not None:
+        ids = pd.read_csv(
+            config.filename_ids,
+            sep="\t",
+            usecols=[
+                "#Scan#",
+                "Compound_Name",
+                "Ion_Source",
+                "LibMZ",
+                "INCHI",
+                "SpectrumFile",
+                "SpectrumID",
+                "MZErrorPPM",
+            ],
+        )
+        ids = ids.rename(
+            columns={
+                "Compound_Name": "CompoundName",
+                "Ion_Source": "IonSource",
+                "LibMZ": "LibraryPrecursorMass",
+                "INCHI": "InChI",
+                "MZErrorPPM": "MzErrorPpm",
+            }
+        )
+        ids["LibraryUsi"] = (
+            "mzspec:GNPS:GNPS-LIBRARY:accession:" + ids["SpectrumID"]
+        )
+        ids["ClusterId"] = (
+            ids["SpectrumFile"].apply(
+                lambda filename: os.path.splitext(filename)[0]
+            )
+            + ":scan:"
+            + ids["#Scan#"].astype(str)
+        )
+        ids = ids.drop(columns=["#Scan#", "SpectrumFile", "SpectrumID"])
+    else:
+        ids = pd.concat(
+            [clusters_individual[0], clusters_global[0]], ignore_index=True
+        )
     pairs = pd.concat(
         [clusters_individual[1], clusters_global[1]], ignore_index=True
     )
     clusters = pd.concat(
         [clusters_individual[2], clusters_global[2]], ignore_index=True
     )
+    # Filter based on the defined acceptance criteria.
+    ids = _filter_ids(ids, config.max_ppm, config.min_shared_peaks)
+    pairs = _filter_pairs(pairs, config.min_cosine)
+    clusters = _filter_clusters(clusters)
 
     # Generate suspects from all of the clustering data.
     logger.info("Generate suspect pairs")
@@ -190,11 +230,7 @@ def generate_suspects() -> None:
 
 
 def _generate_suspects_per_dataset(
-    living_data_base_url: str,
-    max_ppm: float,
-    min_shared_peaks: int,
-    min_cosine: float,
-    n_jobs: int = None,
+    living_data_base_url: str, n_jobs: int = None
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Get all individual dataset cluster results from the GNPS living data.
@@ -203,12 +239,6 @@ def _generate_suspects_per_dataset(
     ----------
     living_data_base_url : str
         The URL of the living data FTP location.
-    max_ppm : float
-        The maximum ppm deviation for identifications to be included.
-    min_shared_peaks : int
-        The minimum number of shared peaks for identifications to be included.
-    min_cosine : float
-        The minimum cosine used to retain high-quality pairs.
     n_jobs : int
         The maximum number of concurrently running FTP queries. Using too many
         parallel requests can lead to a temporary server ban.
@@ -238,12 +268,11 @@ def _generate_suspects_per_dataset(
             ids.append(i)
             pairs.append(p)
             clusters.append(c)
-    ids = _filter_ids(
-        pd.concat(ids, ignore_index=True), max_ppm, min_shared_peaks
+    return (
+        pd.concat(ids, ignore_index=True),
+        pd.concat(pairs, ignore_index=True),
+        pd.concat(clusters, ignore_index=True),
     )
-    pairs = _filter_pairs(pd.concat(pairs, ignore_index=True), min_cosine)
-    clusters = _filter_clusters(pd.concat(clusters, ignore_index=True))
-    return ids, pairs, clusters
 
 
 def _download_cluster(
@@ -378,11 +407,7 @@ def _download_cluster(
 
 
 def _generate_suspects_global(
-    global_network_dir: str,
-    task_id: str,
-    max_ppm: float,
-    min_shared_peaks: int,
-    min_cosine: float,
+    global_network_dir: str, task_id: str
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Transform cluster information for the global molecular network built on top
@@ -394,12 +419,6 @@ def _generate_suspects_global(
         The directory with the output of the molecular networking job.
     task_id : str
         The GNPS task identifier of the molecular networking job.
-    max_ppm : float
-        The maximum ppm deviation for identifications to be included.
-    min_shared_peaks : int
-        The minimum number of shared peaks for identifications to be included.
-    min_cosine : float
-        The minimum cosine used to retain high-quality pairs.
 
     Returns
     -------
@@ -498,10 +517,6 @@ def _generate_suspects_global(
             "SuspectUsi",
         ]
     ]
-
-    ids = _filter_ids(ids, max_ppm, min_shared_peaks)
-    pairs = _filter_pairs(pairs, min_cosine)
-    clust = _filter_clusters(clust)
     return ids, pairs, clust
 
 

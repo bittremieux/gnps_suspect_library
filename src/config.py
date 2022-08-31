@@ -14,6 +14,8 @@ living_data_base_url = "MSV000084314/updates/2020-11-18_mwang87_d115210a/other"
 # https://gnps.ucsd.edu/ProteoSAFe/status.jsp?task=4f69e11bfb544010b2c4225a255f17ba
 global_network_dir = os.path.join(data_dir, "external", "global_network")
 global_network_task_id = "4f69e11bfb544010b2c4225a255f17ba"
+# Additional spectrum annotations to use instead of the living data ids.
+filename_ids = None
 
 # Criteria to form a suspect:
 #
