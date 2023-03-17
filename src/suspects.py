@@ -47,17 +47,37 @@ def generate_suspects() -> None:
     clusters_individual = _generate_suspects_per_dataset(
         config.living_data_base_url, 5
     )
+    logger.info(
+        "%d spectrum annotations, %d spectrum pairs, %d clusters retrieved "
+        "from living data results for individual datasets",
+        len(clusters_individual[0]),
+        len(clusters_individual[1]),
+        len(clusters_individual[2]),
+    )
     # Get the clustering data from the global analysis.
     clusters_global = _generate_suspects_global(
         config.global_network_dir, config.global_network_task_id
+    )
+    logger.info(
+        "%d spectrum annotations, %d spectrum pairs, %d clusters retrieved "
+        "from the global molecular network",
+        len(clusters_global[0]),
+        len(clusters_global[1]),
+        len(clusters_global[2]),
     )
     # Merge the clustering data from both sources.
     ids = pd.concat(
         [clusters_individual[0], clusters_global[0]], ignore_index=True
     )
     if config.filename_ids is not None:
-        ids = pd.concat([ids, _read_ids(config.filename_ids)])
-        library_usis_to_include = _read_ids(config.filename_ids)["LibraryUsi"]
+        extra_ids = _read_ids(config.filename_ids)
+        ids = pd.concat([ids, extra_ids], ignore_index=True)
+        logger.info(
+            "%d additional spectrum annotations from external library "
+            "searching included",
+            len(extra_ids)
+        )
+        library_usis_to_include = set(extra_ids["LibraryUsi"])
     else:
         library_usis_to_include = None
     pairs = pd.concat(
@@ -66,24 +86,39 @@ def generate_suspects() -> None:
     clusters = pd.concat(
         [clusters_individual[2], clusters_global[2]], ignore_index=True
     )
+    logger.info(
+        "%d spectrum annotations, %d spectrum pairs, %d clusters retained "
+        "before filtering",
+        len(ids),
+        len(pairs),
+        len(clusters),
+    )
     # Filter based on the defined acceptance criteria.
     ids = _filter_ids(ids, config.max_ppm, config.min_shared_peaks)
     pairs = _filter_pairs(pairs, config.min_cosine)
     clusters = _filter_clusters(clusters)
+    logger.info(
+        "%d spectrum annotations, %d spectrum pairs, %d clusters retained "
+        "after filtering",
+        len(ids),
+        len(pairs),
+        len(clusters),
+    )
 
     # Generate suspects from all of the clustering data.
-    logger.info("Generate suspect pairs")
     suspects_unfiltered = _generate_suspects(ids, pairs, clusters)
     suspects_unfiltered.to_parquet(
         os.path.join(suspects_dir, f"suspects_{task_id}_unfiltered.parquet"),
         index=False,
+    )
+    logger.info(
+        "%d candidate unfiltered suspects generated", len(suspects_unfiltered)
     )
     # Ignore suspects without a mass shift.
     suspects_grouped = suspects_unfiltered[
         suspects_unfiltered["DeltaMass"].abs() > config.min_delta_mz
     ].copy()
     # Group and assign suspects by observed mass shift.
-    logger.info("Group suspects by mass shift and assign potential rationales")
     suspects_grouped = _group_mass_shifts(
         suspects_grouped,
         _get_mass_shift_annotations(config.mass_shift_annotation_url),
@@ -104,9 +139,8 @@ def generate_suspects() -> None:
         index=False,
     )
     logger.info(
-        "%d suspects with non-zero mass differences collected (%d total)",
+        "%d (non-unique) suspects with non-zero mass differences collected",
         len(suspects_grouped),
-        len(suspects_unfiltered),
     )
 
     # 1. Only use the top suspect (by cosine score) per combination of library
@@ -124,7 +158,7 @@ def generate_suspects() -> None:
         index=False,
     )
     logger.info(
-        "%d unique suspects after duplicate removal and filtering",
+        "%d unique suspects retained after duplicate removal and filtering",
         len(suspects_unique),
     )
 
@@ -245,7 +279,7 @@ def _download_cluster(
                     "CLUSTERID2": "ClusterId2",
                 }
             )
-            for col in ("ClusterId1", "ClusterId1"):
+            for col in ("ClusterId1", "ClusterId2"):
                 pairs[col] = f"{msv_id}:scan:" + pairs[col].astype(str)
             clust = pd.read_csv(
                 f"{ftp_prefix}/CLUSTERINFO/{msv_id}_clustering.tsv",
@@ -428,11 +462,15 @@ def _read_ids(filename: str) -> pd.DataFrame:
             "#Scan#",
             "Compound_Name",
             "Ion_Source",
+            "Instrument",
+            "Adduct",
             "LibMZ",
             "INCHI",
+            "IonMode",
+            "MZErrorPPM",
+            "SharedPeaks",
             "SpectrumFile",
             "SpectrumID",
-            "MZErrorPPM",
         ],
     )
     ids = ids.rename(
