@@ -4,15 +4,17 @@ channels:
   - bioconda
   - defaults
 dependencies:
+  - certifi
   - joblib
   - jupyter
+  - lxml
   - matplotlib
   - networkx
-  - numpy
-  - pandas
+  - numba=0.55
+  - numpy=1.21
   - pyarrow
   - pyteomics
-  - python=3.8
+  - python=3.10
   - requests
   - scipy
   - seaborn
