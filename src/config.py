@@ -9,7 +9,14 @@ mass_shift_annotation_url = (
     "export?format=csv&gid=566878567"
 )
 # Living data analysis performed on 2020-11-18.
-living_data_base_url = "MSV000084314/updates/2020-11-18_mwang87_d115210a/other"
+living_data_dir = os.path.join(
+    data_dir,
+    "external",
+    "MSV000084314",
+    "updates",
+    "2020-11-18_mwang87_d115210a",
+    "other",
+)
 # Global living data molecular networking performed on 2019-10-21.
 # https://gnps.ucsd.edu/ProteoSAFe/status.jsp?task=4f69e11bfb544010b2c4225a255f17ba
 global_network_dir = os.path.join(data_dir, "external", "global_network")
