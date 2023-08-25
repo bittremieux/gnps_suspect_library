@@ -28,12 +28,12 @@ To select the nearest neighbor suspect spectral library as one of the spectral l
 
 ![Selecting the nearest neighbor suspect spectral library on GNPS](gnps_howto.png)
 
-Alternatively, you can [download the nearest neighbor suspect spectral library as an MGF file from GNPS](https://gnps.ucsd.edu/ProteoSAFe/gnpslibrary.jsp?library=GNPS-SUSPECTLIST) or from [its Zenodo archive](https://doi.org/10.5281/zenodo.6512084) and include it in any external MS/MS data analysis tool.
+Alternatively, you can [download the nearest neighbor suspect spectral library as an MGF file from GNPS](https://gnps.ucsd.edu/ProteoSAFe/gnpslibrary.jsp?library=GNPS-SUSPECTLIST) or from [its Zenodo archive](https://doi.org/10.5281/zenodo.8282733) and include it in any external MS/MS data analysis tool.
 
 Data availability
 -----------------
 
-All of the data used to compile the nearest neighbor suspect spectral library are publicly available through [GNPS/MassIVE](https://gnps.ucsd.edu/) and [archived on Zenodo](TODO: include link).
+All of the data used to compile the nearest neighbor suspect spectral library are publicly available through [GNPS/MassIVE](https://gnps.ucsd.edu/) and [archived on Zenodo](https://doi.org/10.5281/zenodo.8282733).
 
 ### GNPS living data molecular networking
 
